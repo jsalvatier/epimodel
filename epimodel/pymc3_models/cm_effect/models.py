@@ -84,6 +84,29 @@ class BaseCMModel(Model):
         with self:
             self.trace = pm.sample(N, chains=chains, cores=cores, init="adapt_diag")
 
+    def create_delay_dist(self, delay_mean):
+        """
+        Generate and return CMDelayProb and CMDelayCut.
+        """
+        # Poisson distribution
+        CMDelayProb = np.array(
+            [
+                delay_mean ** k * np.exp(-delay_mean) / math.factorial(k)
+                for k in range(int(10 * delay_mean) + 20)
+            ]
+        )
+        assert abs(sum(CMDelayProb) - 1.0) < 1e-3
+
+        # Shorten the distribution to have >99% of the mass
+        CMDelayProb = CMDelayProb[np.cumsum(CMDelayProb) <= 0.999]
+        # Cut off first days to have 90% of pre-existing intervention effect
+        CMDelayCut = sum(np.cumsum(CMDelayProb) < 0.9)
+        log.debug(
+            f"CM delay: mean {np.sum(CMDelayProb * np.arange(len(CMDelayProb)))}, "
+            f"len {len(CMDelayProb)}, cut at {CMDelayCut}"
+        )
+        return CMDelayProb, CMDelayCut
+
 
 class CMModelV2(BaseCMModel):
     """
@@ -92,23 +115,7 @@ class CMModelV2(BaseCMModel):
 
     def __init__(self, data, delay_mean=7.0):
         super().__init__(data)
-
-        # Poisson distribution
-        self.CMDelayProb = np.array(
-            [
-                delay_mean ** k * np.exp(-delay_mean) / math.factorial(k)
-                for k in range(100)
-            ]
-        )
-        assert abs(sum(self.CMDelayProb) - 1.0) < 1e-3
-
-        # Shorten the distribution to have >99% of the mass
-        self.CMDelayProb = self.CMDelayProb[np.cumsum(self.CMDelayProb) <= 0.999]
-        # Cut off first days to have 90% of pre-existing intervention effect
-        self.CMDelayCut = sum(np.cumsum(self.CMDelayProb) < 0.9)
-        print(
-            f"CM delay: mean {np.sum(self.CMDelayProb * np.arange(len(self.CMDelayProb)))}, len {len(self.CMDelayProb)}, cut at {self.CMDelayCut}"
-        )
+        self.CMDelayProb, self.CMDelayCut = self.create_delay_dist(delay_mean)
 
     def build_reduction_var(self, scale=0.1):
         """
@@ -181,7 +188,7 @@ class CMModelV2(BaseCMModel):
         )
 
         # [region, day] Multiplicative noise applied to predicted growth rate
-        RealGrowthNoise = self.Det(
+        self.Det(
             "RealGrowthNoise", RealGrowth / PredictedGrowth, plot_trace=False,
         )
 
@@ -193,7 +200,7 @@ class CMModelV2(BaseCMModel):
         # (Since we ony care about growth rates and assume consistent testing, it is fine to ignore real size)
         Size = self.Det(
             "Size",
-            T.reshape(InitialSize, (self.nRs, 1)) * self.RealGrowth.cumprod(axis=1),
+            T.reshape(InitialSize, (self.nRs, 1)) * RealGrowth.cumprod(axis=1),
             plot_trace=False,
         )
 
@@ -209,12 +216,129 @@ class CMModelV2(BaseCMModel):
 
         # [region, day] Multiplicative noise applied to predicted growth rate
         # Note: computed backwards, since self.Observed needs to be a distribution
-        ObservedNoise = self.Det("ObservedNoise", Observed / Size, plot_trace=False,)
+        self.Det("ObservedNoise", Observed / Size, plot_trace=False,)
 
 
 class CMModelV2g(CMModelV2):
     """
     CM effect model V2g (exp(-gamma) prior)
+    """
+
+    def build_reduction_var(self, alpha=0.5, beta=1.0):
+        """
+        CM reduction prior from ICL paper, only values <=1.0
+        """
+        # [CM] How much countermeasures reduce growth rate
+        CMReductionGamma = pm.Gamma("CMReductionGamma", alpha, beta, shape=(self.nCMs,))
+        return self.Det("CMReduction", T.exp((-1.0) * CMReductionGamma))
+
+
+class CMModelV1(BaseCMModel):
+    """
+    CM effect model V1 (lognormal prior)
+    """
+
+    def __init__(self, data, delay_mean=7.0):
+        super().__init__(data)
+        self.CMDelayProb, self.CMDelayCut = self.create_delay_dist(delay_mean)
+
+    def build_reduction_var(self, scale=0.1):
+        """
+        Less informative prior for CM reduction, allows values >1.0
+        """
+        # [CM] How much countermeasures reduce growth rate
+        return self.LogNorm("CMReduction", 1.0, scale, shape=(self.nCMs,))
+
+    def build(self):
+        """
+        Build the model variables.
+        """
+        CMReduction = self.build_reduction_var()
+
+        # [] Baseline growth rate (wide prior OK, mean estimates ~20% daily growth)
+        BaseGrowthRate = self.LogNorm("BaseGrowthRate", 1.2, 2.0)
+
+        # [region] Initial size of epidemic (the day before the start, only those detected; wide prior OK)
+        InitialSize = self.LogNorm("InitialSize", 1.0, 10, shape=(self.nRs,))
+
+        # [region] Region growth rate
+        # TODO: Estimate growth rate variance
+        RegionGrowthRate = self.LogNorm(
+            "RegionGrowthRate", BaseGrowthRate, 0.3, shape=(self.nRs,)
+        )
+
+        # [region, CM, day] Reduction factor for each CM,C,D
+        ActiveCMReduction = (
+            T.reshape(CMReduction, (1, self.nCMs, 1)) ** self.d.ActiveCMs
+        )
+
+        # [region, day] Reduction factor from CMs for each C,D (noise added below)
+        GrowthReduction = self.Det(
+            "GrowthReduction", T.prod(ActiveCMReduction, axis=1), plot_trace=False
+        )
+
+        # [region, day] Convolution of GrowthReduction by DelayProb along days
+        DelayedGrowthReduction = geom_convolution(
+            GrowthReduction, self.CMDelayProb, axis=1
+        )
+
+        # Erase early DlayedGrowthRates in first ~10 days (would assume them non-present otherwise!)
+        DelayedGrowthReduction = DelayedGrowthReduction[:, self.CMDelayCut :]
+
+        # [region, day - CMDelayCut] The ideal predicted daily growth
+        PredictedGrowth = self.Det(
+            "PredictedGrowth",
+            T.reshape(RegionGrowthRate, (self.nRs, 1)) * DelayedGrowthReduction,
+            plot_trace=False,
+        )
+
+        # [region, day - CMDelayCut] The actual (still hidden) growth each day
+        # TODO: Estimate noise varince (should be small, measurement variance below)
+        #       Miscalibration: too low: time effects pushed into CMs, too high: explains away CMs
+        RealGrowth = self.LogNorm(
+            "RealGrowth",
+            PredictedGrowth,
+            0.07,
+            shape=(self.nRs, self.nDs - self.CMDelayCut),
+            plot_trace=False,
+        )
+
+        # [region, day] Multiplicative noise applied to predicted growth rate
+        self.Det(
+            "RealGrowthNoise", RealGrowth / PredictedGrowth, plot_trace=False,
+        )
+
+        # Below I assume plain exponentia growth of confirmed rather than e.g. depending on the remaining
+        # susceptible opulation etc.
+
+        # [region, day - CMDelayCut] The number of cases that would be detected with noiseless testing
+        # (Noise source includes both false-P/N rates and local variance in test volume and targetting)
+        # (Since we ony care about growth rates and assume consistent testing, it is fine to ignore real size)
+        Size = self.Det(
+            "Size",
+            T.reshape(InitialSize, (self.nRs, 1)) * RealGrowth.cumprod(axis=1),
+            plot_trace=False,
+        )
+
+        # [region, day - CMDelayCut] Cummulative tested positives
+        Observed = pm.Lognormal(
+            "Observed",
+            Size,
+            0.3,
+            shape=(self.nRs, self.nDs - self.CMDelayCut),
+            observed=self.d.Active[:, self.CMDelayCut :],
+        )
+
+        # [region, day] Multiplicative noise applied to predicted growth rate
+        # Note: computed backwards, since self.Observed needs to be a distribution
+        self.Det(
+            "ObservedNoise", Observed / Size, plot_trace=False,
+        )
+
+
+class CMModelV1g(CMModelV1):
+    """
+    CM effect model V1g (exp(-gamma) prior)
     """
 
     def build_reduction_var(self, alpha=0.5, beta=1.0):
