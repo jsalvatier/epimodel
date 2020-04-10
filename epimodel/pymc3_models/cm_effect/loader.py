@@ -12,7 +12,15 @@ log = logging.getLogger(__name__)
 
 
 class Loader:
-    def __init__(self, start, end, regions, features, data_dir=None):
+    def __init__(
+        self,
+        start,
+        end,
+        regions,
+        CMs,
+        data_dir=None,
+        active_cm_file="countermeasures-model-0to1.csv",
+    ):
         if data_dir is None:
             data_dir = Path(__file__).parents[3] / "data"
         self.data_dir = data_dir
@@ -20,8 +28,8 @@ class Loader:
         # Days
         self.Ds = pd.date_range(start=start, end=end, tz="utc")
 
-        # Features
-        self.CMs = list(features)
+        # CM features
+        self.CMs = list(CMs)
 
         # Countries / regions
         self.Rs = list(regions)
@@ -30,10 +38,7 @@ class Loader:
 
         # Raw data, never modified
         self.johns_hopkins = read_csv(self.data_dir / "johns-hopkins.csv")
-        self.features_0to1 = read_csv(self.data_dir / "countermeasures-model-0to1.csv")
-
-        # Selected features:
-        self.features = self.features_0to1
+        self.features = read_csv(self.data_dir / active_cm_file)
 
         self.TheanoType = "float64"
 
@@ -49,43 +54,6 @@ class Loader:
         self.ActiveCMs = None
 
         self.update()
-
-    def split_0to1_features(self, exclusive=False):
-        """
-        Split joined features in model-0to1 into separate bool features.
-
-        Resulting DF is stored in `self.features_split` and returned.
-        """
-        fs = {}
-        f01 = self.features_0to1
-
-        fs["Masks over 60"] = f01["Mask wearing"] >= 60
-
-        fs["Asymptomatic contact isolation"] = f01["Asymptomatic contact isolation"]
-
-        fs["Gatherings limited to 10"] = f01["Gatherings limited to"] > 0
-        fs["Gatherings limited to 100"] = f01["Gatherings limited to"] > 0
-        fs["Gatherings limited to 1000"] = f01["Gatherings limited to"] > 0
-
-        fs["Business suspended - some"] = f01["Business suspended"] > 0.1
-        fs["Business suspended - many"] = f01["Business suspended"] > 0.6
-
-        fs["Schools and universities closed"] = f01["Schools and universities closed"]
-
-        fs["Distancing and hygiene over 0.2"] = (
-            f01["Minor distancing and hygiene measures"] > 0.2
-        )
-
-        fs["General curfew - permissive"] = f01["General curfew"] > 0.1
-        fs["General curfew - strict"] = f01["General curfew"] > 0.6
-
-        fs["Healthcare specialisation over 0.2"] = (
-            f01["Healthcare specialisation"] > 0.2
-        )
-
-        fs["Phone line"] = f01["Phone line"]
-
-        return pd.DataFrame(fs).astype("f4")
 
     def update(self):
         """(Re)compute the values used in the model after any parameter/region/etc changes."""
@@ -156,5 +124,46 @@ class Loader:
         return res
 
 
-def statstr(d):
-    return f"{d.mean():.3g} ({np.quantile(d, 0.05):.3g} .. {np.quantile(d, 0.95):.3g})"
+def split_0to1_features(features_0to1, exclusive=False):
+    """
+    Split joined features in model-0to1 into separate bool features.
+
+    If `exclusive`, only one of a chain of features is activated.
+    Otherwise all up to the active level are active.
+    Resulting DF is returned.
+    """
+    fs = {}
+    f01 = features_0to1
+
+    fs["Masks over 60"] = f01["Mask wearing"] >= 60
+
+    fs["Asymptomatic contact isolation"] = f01["Asymptomatic contact isolation"]
+
+    fs["Gatherings limited to 10"] = f01["Gatherings limited to"] > 0.84
+    fs["Gatherings limited to 100"] = f01["Gatherings limited to"] > 0.35
+    fs["Gatherings limited to 1000"] = f01["Gatherings limited to"] > 0.05
+    if exclusive:
+        fs["Gatherings limited to 1000"] &= ~fs["Gatherings limited to 100"]
+        fs["Gatherings limited to 100"] &= ~fs["Gatherings limited to 10"]
+
+    fs["Business suspended - some"] = f01["Business suspended"] > 0.1
+    fs["Business suspended - many"] = f01["Business suspended"] > 0.6
+    if exclusive:
+        fs["Business suspended - some"] &= ~fs["Business suspended - many"]
+
+    fs["Schools and universities closed"] = f01["Schools and universities closed"]
+
+    fs["Distancing and hygiene over 0.2"] = (
+        f01["Minor distancing and hygiene measures"] > 0.2
+    )
+
+    fs["General curfew - permissive"] = f01["General curfew"] > 0.1
+    fs["General curfew - strict"] = f01["General curfew"] > 0.6
+    if exclusive:
+        fs["General curfew - permissive"] &= ~fs["General curfew - strict"]
+
+    fs["Healthcare specialisation over 0.2"] = f01["Healthcare specialisation"] > 0.2
+
+    fs["Phone line"] = f01["Phone line"]
+
+    return pd.DataFrame(fs).astype("f4")
