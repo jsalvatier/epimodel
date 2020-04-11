@@ -92,7 +92,7 @@ class BaseCMModel(Model):
         CMDelayProb = np.array(
             [
                 delay_mean ** k * np.exp(-delay_mean) / math.factorial(k)
-                for k in range(int(10 * delay_mean) + 20)
+                for k in range(100)
             ]
         )
         assert abs(sum(CMDelayProb) - 1.0) < 1e-3
@@ -216,7 +216,9 @@ class CMModelV2(BaseCMModel):
 
         # [region, day] Multiplicative noise applied to predicted growth rate
         # Note: computed backwards, since self.Observed needs to be a distribution
-        self.Det("ObservedNoise", Observed / Size, plot_trace=False,)
+        self.Det(
+            "ObservedNoise", Observed / Size, plot_trace=False,
+        )
 
 
 class CMModelV2g(CMModelV2):

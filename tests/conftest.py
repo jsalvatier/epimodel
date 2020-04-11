@@ -13,7 +13,7 @@ def datadir(request):
     p = Path(request.module.__file__).parent.parent / "data"
     if p.exists():
         return p
-    raise Exception("test data dir not found")    
+    raise Exception("test data dir not found")
 
 
 @pytest.fixture

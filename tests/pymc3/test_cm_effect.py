@@ -51,6 +51,6 @@ def test_modelv2(datadir):
         data_dir=datadir,
         active_cm_file="countermeasures-model-0to1-split.csv",
     )
-    with cm_effect.CMModelV2(data, 35.0) as model:
+    with cm_effect.CMModelV2(data, 15.0) as model:
         model.build()
     print(model.check_test_point())
