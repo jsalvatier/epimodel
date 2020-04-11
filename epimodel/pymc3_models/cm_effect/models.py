@@ -241,6 +241,9 @@ class CMModelV1(BaseCMModel):
     def __init__(self, data, delay_mean=7.0):
         super().__init__(data)
         self.CMDelayProb, self.CMDelayCut = self.create_delay_dist(delay_mean)
+        self.observed_data = self.d.Confirmed
+        self.noise_RealGrowth = 0.07
+        self.noise_Observed = 0.3
 
     def build_reduction_var(self, scale=0.1):
         """
@@ -298,7 +301,7 @@ class CMModelV1(BaseCMModel):
         RealGrowth = self.LogNorm(
             "RealGrowth",
             PredictedGrowth,
-            0.07,
+            self.noise_RealGrowth,
             shape=(self.nRs, self.nDs - self.CMDelayCut),
             plot_trace=False,
         )
@@ -324,9 +327,9 @@ class CMModelV1(BaseCMModel):
         Observed = pm.Lognormal(
             "Observed",
             Size,
-            0.3,
+            self.noise_Observed,
             shape=(self.nRs, self.nDs - self.CMDelayCut),
-            observed=self.d.Active[:, self.CMDelayCut :],
+            observed=self.observed_data[:, self.CMDelayCut :],
         )
 
         # [region, day] Multiplicative noise applied to predicted growth rate
