@@ -5,6 +5,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import seaborn as sns
+import math
 
 from ... import RegionDataset, read_csv
 
@@ -103,7 +105,49 @@ class Loader:
                 f"  {set(vals) if len(set(vals)) <= 4 else ''}"
             )
 
-        # TODO: add more
+    def create_delay_dist(self, delay_mean):
+        """
+        Generate and return CMDelayProb and CMDelayCut.
+        """
+        # Poisson distribution
+        CMDelayProb = np.array(
+            [
+                delay_mean ** k * np.exp(-delay_mean) / math.factorial(k)
+                for k in range(100)
+            ]
+        )
+        assert abs(sum(CMDelayProb) - 1.0) < 1e-3
+
+        # Shorten the distribution to have >99% of the mass
+        CMDelayProb = CMDelayProb[np.cumsum(CMDelayProb) <= 0.999]
+        # Cut off first days to have 90% of pre-existing intervention effect
+        CMDelayCut = sum(np.cumsum(CMDelayProb) < 0.9)
+        log.debug(
+            f"CM delay: mean {np.sum(CMDelayProb * np.arange(len(CMDelayProb)))}, "
+            f"len {len(CMDelayProb)}, cut at {CMDelayCut}"
+        )
+        return CMDelayProb, CMDelayCut
+
+    def plot_cm_correlation(self, delay_mean=7.0):
+        delay_dist, _ = self.create_delay_dist(delay_mean)
+        dcs = {}
+        for cmi, cm in enumerate(self.CMs):
+            dcs[cm] = []
+            for ri in range(len(self.Rs)):
+                dcs[cm].extend(np.convolve(self.ActiveCMs[ri, cmi, :], delay_dist))
+        corr = pd.DataFrame(dcs).corr()
+        mask = np.triu(np.ones_like(corr, dtype=np.bool))
+        cmap = sns.diverging_palette(220, 10, as_cmap=True)
+        sns.heatmap(
+            corr,
+            mask=mask,
+            center=0,
+            annot=True,
+            square=True,
+            cmap=cmap,
+            linewidths=0.5,
+            cbar_kws={"shrink": 0.5},
+        )
 
     def filter_regions(
         self, regions, min_feature_sum=1.0, min_final_jh=400, jh_col="Confirmed"

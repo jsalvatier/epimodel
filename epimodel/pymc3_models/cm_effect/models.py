@@ -84,30 +84,6 @@ class BaseCMModel(Model):
         with self:
             self.trace = pm.sample(N, chains=chains, cores=cores, init="adapt_diag")
 
-    def create_delay_dist(self, delay_mean):
-        """
-        Generate and return CMDelayProb and CMDelayCut.
-        """
-        # Poisson distribution
-        CMDelayProb = np.array(
-            [
-                delay_mean ** k * np.exp(-delay_mean) / math.factorial(k)
-                for k in range(100)
-            ]
-        )
-        assert abs(sum(CMDelayProb) - 1.0) < 1e-3
-
-        # Shorten the distribution to have >99% of the mass
-        CMDelayProb = CMDelayProb[np.cumsum(CMDelayProb) <= 0.999]
-        # Cut off first days to have 90% of pre-existing intervention effect
-        CMDelayCut = sum(np.cumsum(CMDelayProb) < 0.9)
-        log.debug(
-            f"CM delay: mean {np.sum(CMDelayProb * np.arange(len(CMDelayProb)))}, "
-            f"len {len(CMDelayProb)}, cut at {CMDelayCut}"
-        )
-        return CMDelayProb, CMDelayCut
-
-
 class CMModelV2(BaseCMModel):
     """
     CM effect model V2 (lognormal prior)
@@ -115,7 +91,7 @@ class CMModelV2(BaseCMModel):
 
     def __init__(self, data, delay_mean=7.0):
         super().__init__(data)
-        self.CMDelayProb, self.CMDelayCut = self.create_delay_dist(delay_mean)
+        self.CMDelayProb, self.CMDelayCut = self.d.create_delay_dist(delay_mean)
 
     def build_reduction_var(self, scale=0.1):
         """
@@ -242,7 +218,7 @@ class CMModelV1(BaseCMModel):
 
     def __init__(self, data, delay_mean=7.0):
         super().__init__(data)
-        self.CMDelayProb, self.CMDelayCut = self.create_delay_dist(delay_mean)
+        self.CMDelayProb, self.CMDelayCut = self.d.create_delay_dist(delay_mean)
         self.observed_data = self.d.Confirmed
         self.noise_RealGrowth = 0.07
         self.noise_Observed = 0.3
