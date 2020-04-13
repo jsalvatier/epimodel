@@ -108,7 +108,13 @@ class WebExportRegion:
         self.region = region
         # Any per-region data. Large ones should go to data_ext.
         self.data = self.extract_smallish_data(
-            rates, hopkins, foretold, timezones, un_age_dist, traces_v3, hospital_capacity
+            rates,
+            hopkins,
+            foretold,
+            timezones,
+            un_age_dist,
+            traces_v3,
+            hospital_capacity,
         )
         # Extended data to be written in a separate per-region file
         self.data_ext = self.extract_models_data(models, simulations_spec)
@@ -157,7 +163,7 @@ class WebExportRegion:
             for key, value in hospital_capacity.to_dict().items():
                 if not isinstance(value, float) or not np.isnan(value):
                     capacity[key] = value
-            
+
             d["Capacity"] = capacity
 
         return d
@@ -380,7 +386,9 @@ def process_export(args) -> None:
 
     traces_v3_df: pd.DataFrame = pd.read_csv(traces_v3, index_col="CodeISO3")
 
-    hospital_capacity_df = pd.read_csv(get_extra_path(args, "hospital_capacity"), index_col="Code")
+    hospital_capacity_df = pd.read_csv(
+        get_extra_path(args, "hospital_capacity"), index_col="Code"
+    )
 
     hopkins_df: pd.DataFrame = pd.read_csv(
         hopkins, index_col=["Code", "Date"], parse_dates=["Date"]
