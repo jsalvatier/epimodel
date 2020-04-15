@@ -25,6 +25,11 @@ jobs:
           source $HOME/.poetry/env
           poetry config virtualenvs.in-project true
 
+      - name: Get full python version
+        id: full-python-version
+        run: |
+          echo ::set-output name=version::$(python -c "import sys; print('-'.join(str(v) for v in sys.version_info))")
+
       - name: Set up cache
         uses: actions/cache@v1
         with:
@@ -43,10 +48,14 @@ jobs:
           path: data/
 
       - name: Update Johns Hopkins
-        run: ./do update_john_hopkins
+        run: |
+          source $HOME/.poetry/env
+          poetry run ./do update_johns_hopkins
 
       - name: Run pipeline notebooks
-        run: ./do update_notebook
+        run: |
+          source $HOME/.poetry/env
+          poetry run ./do update_notebooks
 
       - name: Release
         uses: softprops/action-gh-release@v1
