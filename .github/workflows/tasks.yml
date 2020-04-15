@@ -1,4 +1,4 @@
-name: Run data pipelin
+name: Run data pipeline
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
     - cron: "0 0 * * *"
 
 jobs:
-  Data pipeline:
+  data-pipline:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -38,8 +38,9 @@ jobs:
 
       - uses: actions/checkout@v2
         name: Checkout epimodel data
-        repository: epidemics/epimodel-covid-data
-        path: data/
+        with:
+          repository: "epidemics/epimodel-covid-data"
+          path: data/
 
       - name: Update Johns Hopkins
         run: ./do update_john_hopkins
