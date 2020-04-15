@@ -11,6 +11,8 @@ import epimodel
 from epimodel import Level, RegionDataset
 from epimodel.exports.epidemics_org import process_export, upload_export
 from epimodel.gleam import Batch
+import nbformat
+from nbconvert.preprocessors import ExecutePreprocessor
 
 log = logging.getLogger(__name__)
 
@@ -61,6 +63,15 @@ def web_upload(args):
     )
 
 
+def update_notebooks(args):
+    notebooks = args.config["pipeline_notebooks"]
+    for notebook_filename in notebooks:
+        with open(f"notebooks/{notebook_filename}") as f:
+            nb = nbformat.read(f, as_version=4)
+            ep = ExecutePreprocessor(timeout=600, kernel_name="python3")
+            ep.preprocess(nb, {"metadata": {"path": "notebooks/"}})
+
+
 def import_batch(args):
     batch = Batch.open(args.BATCH_FILE)
     d = args.rds.data
@@ -86,6 +97,9 @@ def create_parser():
 
     upf = sp.add_parser("update_foretold", help="Fetch data from Foretold.")
     upf.set_defaults(func=update_foretold)
+
+    upn = sp.add_parser("update_notebooks", help="Update notebooks")
+    upn.set_defaults(func=update_notebooks)
 
     ibp = sp.add_parser("import_gleam_batch", help="Load batch results from GLEAM.")
     ibp.add_argument(
