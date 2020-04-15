@@ -17,9 +17,6 @@ class Loader:
             data_dir = Path(__file__).parents[3] / "data"
         self.data_dir = data_dir
 
-        # Days
-        self.Ds = pd.date_range(start=start, end=end, tz="utc")
-
         # Features
         self.CMs = list(features)
 
@@ -31,6 +28,17 @@ class Loader:
         # Raw data, never modified
         self.johns_hopkins = read_csv(self.data_dir / "johns-hopkins.csv")
         self.features_0to1 = read_csv(self.data_dir / "countermeasures-model-0to1.csv")
+
+        dates = self.johns_hopkins.index.get_level_values(1)
+
+        if start is None:
+            start = min(dates).date().isoformat()
+
+        if end is None:
+            end = max(dates).date().isoformat()
+
+        # Days
+        self.Ds = pd.date_range(start=start, end=end, tz="utc")
 
         # Selected features:
         self.features = self.features_0to1
