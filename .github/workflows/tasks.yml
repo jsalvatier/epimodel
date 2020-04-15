@@ -1,0 +1,55 @@
+name: Run data pipelin
+
+on:
+  push:
+    branches: pipeline-test
+
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  Data pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        name: Check out epimodel
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+
+      - name: Install and set up Poetry
+        run: |
+          python get-poetry.py --preview -y
+          source $HOME/.poetry/env
+          poetry config virtualenvs.in-project true
+
+      - name: Set up cache
+        uses: actions/cache@v1
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.full-python-version.outputs.version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        run: |
+          source $HOME/.poetry/env
+          poetry install -E 'pymc3 pyro'
+
+      - uses: actions/checkout@v2
+        name: Checkout epimodel data
+        repository: epidemics/epimodel-covid-data
+        path: data/
+
+      - name: Update Johns Hopkins
+        run: ./do update_john_hopkins
+
+      - name: Run pipeline notebooks
+        run: ./do update_notebook
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: data/
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
