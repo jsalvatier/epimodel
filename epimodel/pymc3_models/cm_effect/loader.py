@@ -22,6 +22,7 @@ class Loader:
         CMs,
         data_dir=None,
         active_cm_file="countermeasures-model-0to1.csv",
+        a=False,
     ):
         if data_dir is None:
             data_dir = Path(__file__).parents[3] / "data"
@@ -61,44 +62,46 @@ class Loader:
         """(Re)compute the values used in the model after any parameter/region/etc changes."""
 
         def prep(name, cutoff=None):
-            # Confirmed cases, masking values smaller than 10
             v = (
                 self.johns_hopkins[name]
-                .loc[(tuple(self.Rs), self.Ds)]
+                .astype(self.TheanoType)
                 .unstack(1)
+                .reindex(index=self.Rs, columns=self.Ds)
                 .values
             )
             assert v.shape == (len(self.Rs), len(self.Ds))
             if cutoff is not None:
                 v[v < cutoff] = np.nan
-            # [country, day]
-            return np.ma.masked_invalid(v.astype(self.TheanoType))
+            return np.ma.masked_invalid(v)
 
         self.Confirmed = prep("Confirmed", self.ConfirmedCutoff)
         self.Deaths = prep("Deaths", self.DeathsCutoff)
         self.Recovered = prep("Recovered", self.RecoveredCutoff)
         self.Active = prep("Active", self.ActiveCutoff)
 
-        self.ActiveCMs = self.get_ActiveCMs(self.Ds[0], self.Ds[-1])
+        self.ActiveCMs = self.get_ActiveCMs(self.Ds)
 
-    def get_ActiveCMs(self, start, end):
-        local_Ds = pd.date_range(start=start, end=end, tz="utc")
-        self.sel_features = self.features.loc[self.Rs, self.CMs]
-        if "Mask wearing" in self.sel_features.columns:
-            self.sel_features["Mask wearing"] *= 0.01
+    def get_ActiveCMs(self, dates):
         ActiveCMs = np.stack(
-            [self.sel_features.loc[rc].loc[local_Ds].T for rc in self.Rs]
+            [
+                self.features.loc[rc]
+                .astype(self.TheanoType)
+                .reindex(index=dates, method='pad')
+                .reindex(columns=self.CMs)
+                .values.T
+                for rc in self.Rs
+            ]
         )
-        assert ActiveCMs.shape == (len(self.Rs), len(self.CMs), len(local_Ds))
+        assert ActiveCMs.shape == (len(self.Rs), len(self.CMs), len(dates))
         # [region, CM, day] Which CMs are active, and to what extent
-        return ActiveCMs.astype(self.TheanoType)
+        return ActiveCMs
 
     def print_stats(self):
         """Print data stats, plot graphs, ..."""
 
         print("\nCountermeasures                            min   .. mean  .. max")
         for i, cm in enumerate(self.CMs):
-            vals = np.array(self.sel_features[cm])
+            vals = np.array(self.features[cm])
             print(
                 f"{i:2} {cm:42} {vals.min():.3f} .. {vals.mean():.3f}"
                 f" .. {vals.max():.3f}"
