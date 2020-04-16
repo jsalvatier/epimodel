@@ -99,6 +99,7 @@ def create_parser():
     exp = sp.add_parser("web_export", help="Create data export for web.")
     exp.add_argument("-c", "--comment", help="A short comment (to be part of path).")
     exp.add_argument("models_file", help="A result HDF file of import_gleam_batch step")
+    exp.add_argument("estimates", help="CSV file containing the current estimates")
     exp.set_defaults(func=web_export)
 
     uplp = sp.add_parser("web_upload", help="Upload data to the configured GCS bucket")
