@@ -114,7 +114,7 @@ class WebExportRegion:
         self.current_estimate = current_estimate
         # Any per-region data. Large ones should go to data_ext.
         self.data = self.extract_smallish_data(
-            rates, hopkins, foretold, timezones, un_age_dist, traces_v3,
+            rates, hopkins, foretold, timezones, un_age_dist, traces_v3
         )
         # Extended data to be written in a separate per-region file
         self.data_ext = self.extract_models_data(models, initial, simulations_spec)
@@ -172,12 +172,10 @@ class WebExportRegion:
 
     @staticmethod
     def extract_models_data(
-        models: pd.DataFrame, initial: pd.DataFrame, simulation_spec: pd.DataFrame,
+        models: pd.DataFrame, initial: pd.DataFrame, simulation_spec: pd.DataFrame
     ) -> Dict[str, Any]:
         d = {
-            "date_index": [
-                x.isoformat() for x in models.index.get_level_values("Date")
-            ],
+            "date_index": [x.isoformat() for x in models.index.get_level_values("Date")]
         }
         traces = []
         for simulation_id, simulation_def in simulation_spec.iterrows():
@@ -437,10 +435,7 @@ def process_export(args) -> None:
     traces_v3_df: pd.DataFrame = pd.read_csv(traces_v3, index_col="CodeISO3")
 
     hopkins_df: pd.DataFrame = pd.read_csv(
-        hopkins,
-        index_col=["Code", "Date"],
-        parse_dates=["Date"],
-        keep_default_na=False,
+        hopkins, index_col=["Code", "Date"], parse_dates=["Date"], keep_default_na=False
     ).pipe(aggregate_countries, args.config["state_to_country"])
     foretold_df: pd.DataFrame = pd.read_csv(
         foretold,

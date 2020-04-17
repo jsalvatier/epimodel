@@ -25,29 +25,29 @@ web_export:
 scenarios:
   - param_seasonalityAlphaMin: 0.85
     param_occupancyRate: 70  # Note this is in percent!
-    name: WEAK seasonality<br>WEAK reduction in air travel 
+    name: WEAK seasonality<br>WEAK reduction in air travel
     key: "WEAK_WEAK"
   - param_seasonalityAlphaMin: 0.7
     param_occupancyRate: 70  # Note this is in percent!
-    name: MEDIUM seasonality<br>WEAK reduction in air travel 
+    name: MEDIUM seasonality<br>WEAK reduction in air travel
     key: "MEDIUM_WEAK"
   - param_seasonalityAlphaMin: 0.5
     param_occupancyRate: 70  # Note this is in percent!
-    name: STRONG seasonality<br>WEAK reduction in air travel 
+    name: STRONG seasonality<br>WEAK reduction in air travel
     key: "STRONG_WEAK"
   - param_seasonalityAlphaMin: 0.85
     param_occupancyRate: 20  # Note this is in percent!
-    name: WEAK seasonality<br>STRONG reduction in air travel 
+    name: WEAK seasonality<br>STRONG reduction in air travel
     key: "WEAK_STRONG"
   - param_seasonalityAlphaMin: 0.7
     param_occupancyRate: 20  # Note this is in percent!
-    name: MEDIUM seasonality<br>STRONG reduction in air travel 
+    name: MEDIUM seasonality<br>STRONG reduction in air travel
     key: "MEDIUM_STRONG"
   - param_seasonalityAlphaMin: 0.5
     param_occupancyRate: 20  # Note this is in percent!
-    name: STRONG seasonality<br>STRONG reduction in air travel 
+    name: STRONG seasonality<br>STRONG reduction in air travel
     key: "STRONG_STRONG"
-  
+
 groups:
   - param_beta: 1.285
     group: "None"
