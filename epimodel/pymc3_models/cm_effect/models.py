@@ -153,6 +153,9 @@ class BaseCMModel(Model):
             plt.scatter(self.ObservedDaysIndx, labels[self.ObservedDaysIndx], label="Observed Confirmed", marker="o",
                         s=6, color="tab:purple",
                         zorder=3)
+            plt.scatter(self.ObservedDaysIndx, self.d.Deaths[country_indx, self.ObservedDaysIndx], label="Deaths", marker="o",
+                        s=4, color="black",
+                        zorder=4)
             
             active_cms = self.d.ActiveCMs[country_indx,:,:]
             lines = plt.step(self.ObservedDaysIndx, 1+10**7*active_cms[:, self.ObservedDaysIndx].T )
