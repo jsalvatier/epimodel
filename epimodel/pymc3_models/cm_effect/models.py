@@ -116,7 +116,7 @@ class BaseCMModel(Model):
         assert self.trace is not None
         return pm.traceplot(self.trace, var_names=list(self.plot_trace_vars))
 
-    def plot_region_predictions(self, save_fig=True, output_dir="./out"):
+    def plot_region_predictions(self, save_fig=True, output_dir="./out", cm_labels=None):
         assert self.trace is not None
 
         for country_indx, region in zip(self.OR_indxs, self.ORs):
@@ -153,6 +153,11 @@ class BaseCMModel(Model):
             plt.scatter(self.ObservedDaysIndx, labels[self.ObservedDaysIndx], label="Observed Confirmed", marker="o",
                         s=6, color="tab:purple",
                         zorder=3)
+            
+            active_cms = self.d.ActiveCMs[country_indx,:,:]
+            lines = plt.step(self.ObservedDaysIndx, 1+10**7*active_cms[:, self.ObservedDaysIndx].T )
+            plt.legend(lines, cm_labels)
+
 
             plt.scatter(days_x, self.d.Deaths[country_indx, :], label="deaths", marker="+",
                         s=6, color="black",
@@ -252,8 +257,14 @@ class BaseCMModel(Model):
                 ax1.legend(prop={'size': 6})
                 ax2.legend(prop={'size': 6})
 
-    def plot_effect(self, save_fig=True, output_dir="./out", x_min=0.5, x_max=1.5):
+            
+
+
+
+    def plot_effect(self, save_fig=True, output_dir="./out", x_min=0.5, x_max=1.5, labels=None):
         assert self.trace is not None
+        if labels == None:
+            labels = [f"$\\alpha_{{{i + 1}}}$" for i in range(N_cms)]
         fig = plt.figure(figsize=(7, 3), dpi=300)
         means = np.mean(self.trace["CMReduction"], axis=0)
         li = np.percentile(self.trace["CMReduction"], 2.5, axis=0)
@@ -274,7 +285,8 @@ class BaseCMModel(Model):
         plt.xlim([x_min, x_max])
         plt.ylim([-(N_cms - 0.5), 0.5])
         plt.ylabel("Countermeasure", rotation=90)
-        plt.yticks(y_vals, [f"$\\alpha_{{{i + 1}}}$" for i in range(N_cms)])
+        
+        plt.yticks(y_vals, labels)
         plt.xlabel("Countermeasure Effectiveness")
 
         plt.subplot(122)
