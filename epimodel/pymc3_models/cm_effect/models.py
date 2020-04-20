@@ -144,7 +144,7 @@ class BaseCMModel(Model):
                 plt.scatter(self.HeldoutDaysIndx, labels[self.HeldoutDaysIndx], label="Heldout Confirmed", marker="*",
                             color="tab:red", zorder=3)
 
-            labels = self.d.Active[country_indx, :]
+            labels = self.d.Active.data[country_indx, :]
 
             plt.errorbar(days_x, means, yerr=err, fmt="-D", linewidth=1, markersize=2, label="Infected",
                          zorder=1)
