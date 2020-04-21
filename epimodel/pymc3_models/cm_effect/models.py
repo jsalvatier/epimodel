@@ -1120,7 +1120,10 @@ class CMModelFlexibleV3p1(BaseCMModel):
             with self.model:
                 self.RegionGrowthRate = dist(name="RegionGrowthRate", **dist_kwargs, shape=(self.nORs,))
         else:
-            self.Normal("RegionGrowthRate_log", np.log(1.2), 0.3, shape=(self.nORs,))
+            self.HyperGrowthRateMean_log =  pm.HalfStudentT("HyperGrowthRateMean_log", nu=10, sigma=np.log(1.2))
+            self.HyperGrowthRateVar =       pm.HalfStudentT("HyperGrowthRateVar", nu=10, sigma=.3)
+
+            self.Normal("RegionGrowthRate_log", self.HyperGrowthRateMean_log, self.HyperGrowthRateVar, shape=(self.nORs,))
 
     def build_region_reliability_prior(self, dist=None, dist_kwargs=None, plot_trace=True):
         if dist is not None:
