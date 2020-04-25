@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 import theano
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from epimodel import read_csv, RegionDataset
 
@@ -43,8 +46,13 @@ class DataPreprocessor(object):
             "min_num_confirmed_mask": self.min_num_confirmed_mask,
         }
 
-    def preprocess_data(self, data_base_path, countries, selected_features,
-                        selected_cm_set="countermeasures-model-0to1-split.csv"):
+    def preprocess_data(
+            self,
+            data_base_path,
+            countries,
+            selected_features,
+            selected_cm_set="countermeasures-model-0to1-split.csv",
+    ):
         # at the moment only features from the 0-1 countermeasures dataset
         Ds = pd.date_range(start=self.start_date, end=self.end_date, tz="utc")
         nDs = len(Ds)
@@ -56,9 +64,7 @@ class DataPreprocessor(object):
 
         cm_set_dirs = [
             "countermeasures-features.csv",
-            "countermeasures-model-0to1.csv",
-            "countermeasures-selected-binary.csv",
-            "countermeasures-model-0to1-split.csv"
+            "countermeasures-model-boolean_Gat3Bus2SchCurHespMa.csv",
         ]
 
         cm_sets = {
@@ -71,6 +77,8 @@ class DataPreprocessor(object):
         selected_CMs = selected_features
         CM_dataset = cm_sets[selected_cm_set]
         nCMs = len(selected_features)
+
+        self.CM_dataset = CM_dataset
 
         filtered_countries = []
         for cc in set(countries):
@@ -88,16 +96,13 @@ class DataPreprocessor(object):
         nCs = len(filtered_countries)
         # note that it is essential to sort these values to get the correct corresponances from the john hopkins dataset
         filtered_countries.sort()
-
         sd = CM_dataset.loc[filtered_countries, selected_CMs]
         if "Mask wearing" in selected_CMs:
             sd["Mask wearing"] *= 0.01
 
-        logger_str = (
-            "\nCountermeasures                               min   ... mean  ... max   ... unique"
-        )
+        logger_str = "\nCountermeasures                               min   ... mean  ... max   ... unique"
         for i, cm in enumerate(selected_CMs):
-            logger_str = f"{logger_str}\n{i+1:2} {cm:42} {sd[cm].min().min():.3f} ... {sd[cm].mean().mean():.3f} ... {sd[cm].max().max():.3f} ... {np.unique(sd[cm])[:5]}"
+            logger_str = f"{logger_str}\n{i + 1:2} {cm:42} {sd[cm].min().min():.3f} ... {sd[cm].mean().mean():.3f} ... {sd[cm].max().max():.3f} ... {np.unique(sd[cm])[:5]}"
 
         logger.info(logger_str)
         ActiveCMs = np.stack([sd.loc[c].loc[Ds].T for c in filtered_countries])
@@ -105,15 +110,62 @@ class DataPreprocessor(object):
         # [country, CM, day] Which CMs are active, and to what extent
         ActiveCMs = ActiveCMs.astype(theano.config.floatX)
 
-        plt.figure(figsize=(4, 3), dpi=300)
-        plt.imshow(sd.corr())
-        plt.colorbar()
-        plt.title("Selected CM Correlation")
+        plt.figure(figsize=(10, 3), dpi=300)
+        plt.subplot(1, 3, 1)
+        im = plt.imshow(sd.corr(), aspect="auto")
+        plt.title("Correlation")
         ax = plt.gca()
-        ax.tick_params(axis="both", which="major", labelsize=6)
-        plt.xticks(np.arange(len(selected_features)), [f"$\\alpha_{{{i+1}}}$" for i in range(len(selected_features))])
-        plt.yticks(np.arange(len(selected_features)), [f"$\\alpha_{{{i + 1}}}$" for i in range(len(selected_features))])
-        plt.show()
+        ax.tick_params(axis="both", which="major", labelsize=10)
+        plt.xticks(
+            np.arange(len(selected_features)),
+            [f"$\\alpha_{{{i + 1}}}$" for i in range(len(selected_features))],
+        )
+        plt.yticks(
+            np.arange(len(selected_features)),
+            [f"$\\alpha_{{{i + 1}}}$" for i in range(len(selected_features))],
+        )
+        plt.xlabel("Countermeasure")
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        plt.colorbar(im, cax=cax)
+
+        plt.subplot(1, 3, 2)
+        plt.title("Co-activation")
+        ax = plt.gca()
+        mat = np.zeros((nCMs, nCMs))
+        for cm in range(nCMs):
+            mask = ActiveCMs[:, cm, :]
+            for cm2 in range(nCMs):
+                mat[cm, cm2] = np.sum(mask * ActiveCMs[:, cm2, :]) / np.sum(mask)
+        im = plt.imshow(mat * 100, vmin=0, vmax=100, cmap="inferno", aspect="auto")
+        ax.tick_params(axis="both", which="major", labelsize=10)
+        plt.xticks(
+            np.arange(len(selected_features)),
+            [f"$\\alpha_{{{i + 1}}}$" for i in range(len(selected_features))],
+        )
+        plt.yticks(
+            np.arange(len(selected_features)),
+            [f"$\\alpha_{{{i + 1}}}$" for i in range(len(selected_features))],
+        )
+        plt.xlabel("Countermeasure")
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        plt.colorbar(im, cax=cax)
+
+        plt.subplot(1, 3, 3)
+        days_active = np.sum(np.sum(ActiveCMs, axis=0), axis=1)
+        plt.bar(np.arange(nCMs), days_active)
+        ax.tick_params(axis="both", which="major", labelsize=10)
+        plt.xticks(
+            np.arange(len(selected_features)),
+            [f"$\\alpha_{{{i + 1}}}$" for i in range(len(selected_features))],
+        )
+        plt.xlabel("Countermeasure")
+        plt.ylabel("Country-days")
+        plt.title("Activation")
+
+        plt.tight_layout()
+        sns.despine()
 
         Confirmed = (
             johnhop_ds["Confirmed"]
@@ -144,7 +196,8 @@ class DataPreprocessor(object):
 
         logger.info(
             f"Data Preprocessing Complete using:\n\n{json.dumps(self.generate_params_dict(), indent=4)}\n"
-            f"Selected {len(filtered_countries)} Regions: f{filtered_countries}")
+            f"Selected {len(filtered_countries)} Regions: f{filtered_countries}"
+        )
 
         Deaths = (
             johnhop_ds["Deaths"].loc[(tuple(filtered_countries), Ds)].unstack(1).values
@@ -171,3 +224,4 @@ class PreprocessedData(object):
         self.Rs = Rs
         self.CMs = CMs
         self.Ds = Ds
+        self.NewDeaths = NewDeaths
