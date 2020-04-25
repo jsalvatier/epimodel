@@ -3518,7 +3518,7 @@ class CMDeathModelFlexibleV2(BaseCMModel):
 
     def build_cm_reduction_exp_gamma_prior(self, alpha=0.5, beta=1.0):
         with self.model:
-            self.CM_Alpha = pm.Gamma("CM_Alpha", alpha, beta, shape=(self.nCMs,))
+            self.CM_Alpha = pm.StudentT('CM_Alpha', nu=10, mu=.05, sigma=.1,shape=self.nCMs) #pm.Gamma("CM_Alpha", alpha, beta, shape=(self.nCMs,))
 
         self.Det("CMReduction", T.exp((-1.0) * self.CM_Alpha))
 
@@ -3636,6 +3636,7 @@ class CMDeathModelFlexibleV2(BaseCMModel):
             pm.math.log(self.ExpectedConfirmed),
             plot_trace=False,
         )
+        self.DeathNoise = .4#pm.HalfStudentT('DeathNoise', nu=20, sigma=.5)
 
         with self.model:
             self.Observed = pm.NegativeBinomial(
@@ -3645,6 +3646,15 @@ class CMDeathModelFlexibleV2(BaseCMModel):
                 shape=(self.nORs, self.nODs),
                 observed=self.d.NewDeaths[self.OR_indxs, :][:, self.ObservedDaysIndx]
             )
+            """
+            self.Observed = pm.Normal(
+                "Observed",
+                mu=self.ExpectedConfirmed_log[:, self.ObservedDaysIndx],
+                sigma=self.DeathNoise,
+                shape=(self.nORs, self.nODs),
+                observed=np.log(self.d.NewDeaths[self.OR_indxs, :][:, self.ObservedDaysIndx])
+            )
+            """
 
         # self.Det("Observed", pm.math.exp(self.Observed_log), plot_trace=False)
         self.Det(
