@@ -266,8 +266,7 @@ class BaseCMModel(Model):
 
     def plot_effect(self, save_fig=True, output_dir="./out", x_min=0.5, x_max=1.5, labels=None):
         assert self.trace is not None
-        if labels == None:
-            labels = [f"$\\alpha_{{{i + 1}}}$" for i in range(N_cms)]
+
         fig = plt.figure(figsize=(7, 3), dpi=300)
         means = np.mean(self.trace["CMReduction"], axis=0)
         li = np.percentile(self.trace["CMReduction"], 2.5, axis=0)
@@ -276,6 +275,9 @@ class BaseCMModel(Model):
         uq = np.percentile(self.trace["CMReduction"], 75, axis=0)
 
         N_cms = means.size
+        if labels == None:
+            labels = [f"$\\alpha_{{{i + 1}}}$" for i in range(N_cms)]
+
 
         plt.subplot(121)
         plt.plot([1, 1], [1, -(N_cms)], "--r", linewidth=0.5)
@@ -2836,21 +2838,25 @@ class CMOneModel(BaseCMModel):
 
             ax = plt.gca()
             means, li, ui, err = produce_CIs(self.trace.Infected[:, country_indx, :])
-            means_delayed, li_delayed, ui_delayed, err_delayed = produce_CIs( self.trace.ExpectedConfirmed[:, country_indx, :])
-            means_delayed_death, li_delayed_death, ui_delayed_death, err_delayed_death = produce_CIs( self.trace.ExpectedDeaths[:, country_indx, :])
             days = self.d.Ds
             days_x = np.arange(len(days))
 
             min_x = 5
             max_x = len(days) - 1
 
+            if hasattr(self.trace, 'ExpectedConfirmed'):    
+                means_delayed, li_delayed, ui_delayed, err_delayed = produce_CIs( self.trace.ExpectedConfirmed[:, country_indx, :])
+                plt.errorbar(days_x, means_delayed, yerr=err_delayed, fmt="-o", linewidth=1, markersize=2,
+                             label="Mean Pred Confirmed", zorder=2)
+
+            if hasattr(self.trace, 'ExpectedDeaths'):    
+                means_delayed_death, li_delayed_death, ui_delayed_death, err_delayed_death = produce_CIs( self.trace.ExpectedDeaths[:, country_indx, :])
+                plt.errorbar(days_x, means_delayed_death, yerr=err_delayed_death, fmt="-o", linewidth=1, markersize=2,
+                             label="Mean Pred Deaths", zorder=2)
+
 
             plt.errorbar(days_x, means, yerr=err, fmt="-D", linewidth=1, markersize=2, label="Infected",
                          zorder=1)
-            plt.errorbar(days_x, means_delayed, yerr=err_delayed, fmt="-o", linewidth=1, markersize=2,
-                         label="Mean Pred Confirmed", zorder=2)
-            plt.errorbar(days_x, means_delayed_death, yerr=err_delayed_death, fmt="-o", linewidth=1, markersize=2,
-                         label="Mean Pred Confirmed", zorder=2)
 
             plt.scatter(self.ObservedDaysIndx, self.d.Active.data[country_indx, self.ObservedDaysIndx], label="Observed Confirmed", marker="o",
                         s=6, color="tab:purple",
@@ -2950,6 +2956,7 @@ class CMConfirmed(CMOneModel):
         nR = self.nRs
         nD = self.nDs
 
+        self.ConfirmationNoise = .4#pm.HalfStudentT("ConfirmationNoise", nu=10, sigma=.4)
         self.HyperGrowthRateMean = pm.HalfStudentT("HyperGrowthRateMean", nu=10, sigma=.08)
         self.HyperGrowthRateVar  = pm.HalfStudentT("HyperGrowthRateVar", nu=10, sigma=.3)
 
@@ -2970,13 +2977,26 @@ class CMConfirmed(CMOneModel):
             T.reshape(self.RegionGrowthRate, (nR, 1)) - self.GrowthReduction,
             plot_trace=False)
 
+
+
+        def norm(x): 
+            s = T.sum(x)
+            return x / s
+
+        #self.DelayCMean  = pm.Normal("DelayCMean", sigma=1.5, mu=8)
+        #self.DelayCAlpha = pm.Normal("DelayCAlpha", sigma=1.5, mu=6.5)
+        self.DelayCDist = pm.Gamma.dist(mu=8, sigma=5)#pm.NegativeBinomial.dist(mu=self.DelayCMean, alpha=self.DelayCAlpha)
+
+        xC = np.arange(30)
+        self.ConfirmDelayProb = norm(T.exp(self.DelayCDist.logp(xC)))
+
         self.Normal( "Growth", self.ExpectedGrowth, self.DailyGrowthNoise, shape=(nR, nD), plot_trace=False)
 
         self.Det( "Z1", self.Growth - self.ExpectedGrowth, plot_trace=False) 
 
 
         #output model
-        self.Normal("InitialSize", 1, 10, shape=(nR,))
+        self.Normal("InitialSize", 1, 1000, shape=(nR,))
         self.Det(
             "Infected",
             T.exp(T.reshape(self.InitialSize, (nR, 1)) + self.Growth.cumsum(axis=1)),
@@ -2985,20 +3005,87 @@ class CMConfirmed(CMOneModel):
 
         # use the theano convolution function, reshaping as required
         expected_confirmed = T.nnet.conv2d(self.Infected.reshape((1, 1, nR, nD)),
-                                               np.reshape(self.DelayProb, newshape=(1, 1, 1, self.DelayProb.size)),
-                                               border_mode="full")[:, :, :, :nD]
-        self.Det("ExpectedConfirmed", expected_confirmed.reshape((nR, nD)), plot_trace=False)
-
-        #plt.plot(np.arange(nD), np.log(self.ExpectedConfirmed.tag.test_value.T))
-        #plt.plot(np.arange(nD), np.log(self.Infected.tag.test_value.T))
+                 self.ConfirmDelayProb[None, None, None, :],
+                                           border_mode="full")[:, :, :, :nD]
+        self.Det("ExpectedConfirmed",  expected_confirmed.reshape((nR, nD)), plot_trace=False)
 
         
-        self.Observed = pm.Normal("Observed", T.log(self.ExpectedConfirmed[:, self.ObservedDaysSlc]),
+        self.ObservedConfirmed = pm.Normal("ObservedConfirmed", T.log(self.ExpectedConfirmed[:, self.ObservedDaysSlc]),
                                       self.ConfirmationNoise , #* T.reshape(self.RegionNoiseScale, (nR, 1)),
                                       shape=(nR, nD-10),
                                       observed=np.log(self.d.Active[:, self.ObservedDaysSlc]))
 
-        self.Det( "Z2", T.log(self.Observed / self.ExpectedConfirmed[:, self.ObservedDaysSlc]), plot_trace=False
+
+        self.Det( "Z2", T.log(self.ObservedConfirmed / self.ExpectedConfirmed[:, self.ObservedDaysSlc]), plot_trace=False
+        )
+
+class CMConfirmed2(CMOneModel):
+    def build(self):
+        nR = self.nRs
+        nD = self.nDs
+
+        self.ConfirmationNoise = .4#pm.HalfStudentT("ConfirmationNoise", nu=10, sigma=.4)
+        self.HyperGrowthRateMean = pm.HalfStudentT("HyperGrowthRateMean", nu=10, sigma=.08)
+        self.HyperGrowthRateVar  = pm.HalfStudentT("HyperGrowthRateVar", nu=10, sigma=.3)
+
+        pm.Lognormal("RegionGrowthRate", T.log(self.HyperGrowthRateMean), T.log(self.HyperGrowthRateVar), shape=nR)
+
+        self.ActiveCMs = pm.Data("ActiveCMs", self.d.ActiveCMs)
+        
+        self.CM_Alpha = pm.Gamma( "CM_Alpha", 0.5, 1, shape=(self.nCMs,))
+        self.Det("CMReduction", T.exp((-1.0) * self.CM_Alpha))
+        
+        self.ActiveCMReduction = (
+                T.reshape(self.CM_Alpha, (1, self.nCMs, 1))
+                * self.ActiveCMs)
+
+        self.GrowthReduction = self.Det( "GrowthReduction", T.sum(self.ActiveCMReduction, axis=1), plot_trace=False)
+
+        self.Det("ExpectedGrowth",
+            T.reshape(self.RegionGrowthRate, (nR, 1)) - self.GrowthReduction,
+            plot_trace=False)
+
+
+
+        def norm(x): 
+            s = T.sum(x)
+            return x / s
+
+        self.DelayDDist = pm.Gamma.dist(mu=23, sigma=10)#pm.Gamma.dist(mu=self.DelayDMean, alpha=self.DelayDAlpha)
+
+        xD = np.arange( 60)
+        self.DeathDelayProb = norm(T.exp(self.DelayDDist.logp(xD)))
+
+        self.Normal( "Growth", self.ExpectedGrowth, self.DailyGrowthNoise, shape=(nR, nD), plot_trace=False)
+
+        self.Det( "Z1", self.Growth - self.ExpectedGrowth, plot_trace=False) 
+
+
+        #output model
+        self.Normal("InitialSize", 1, 1000, shape=(nR,))
+
+        infected = self.Det("Infected", T.exp(self.InitialSize[:,None] + self.Growth.cumsum(axis=1)), plot_trace=False)
+
+        new_infected =self.Det("NewInfected", infected[:, 1:]-infected[:, :-1], plot_trace=False)
+
+
+        # use the theano convolution function, reshaping as required
+        new_deaths = T.nnet.conv2d(new_infected[None, None, :,:],
+                                           self.DeathDelayProb[None, None, None, :],
+                                           border_mode="full")[:, :, :, :nD]
+
+        expected_deaths = T.cumsum(T.maximum(new_deaths, 0), axis=3).reshape((nR, nD))
+        self.Det("ExpectedDeaths",  expected_deaths, plot_trace=False)
+
+        print(expected_deaths.tag.test_value)
+        
+        self.ObservedDead = pm.Normal("ObservedDead", T.log(expected_deaths[:, self.ObservedDaysSlc]),
+                                      self.ConfirmationNoise , #* T.reshape(self.RegionNoiseScale, (nR, 1)),
+                                      shape=(nR, nD-10),
+                                      observed=np.log(self.d.Deaths[:, self.ObservedDaysSlc]))
+
+
+        self.Det( "Z2", T.log(self.ObservedDead / self.ExpectedDeaths[:, self.ObservedDaysSlc]), plot_trace=False
         )
 
 class CMConfirmedAndDeaths(CMOneModel):
@@ -3006,8 +3093,8 @@ class CMConfirmedAndDeaths(CMOneModel):
         nR = self.nRs
         nD = self.nDs
 
-        self.ConfirmationNoise = pm.HalfStudentT("ConfirmationNoise", nu=10, sigma=.4)
-        self.DeathNoise        = pm.HalfStudentT("DeathNoise",        nu=10, sigma=.4)
+        self.ConfirmationNoise = .4#pm.HalfStudentT("ConfirmationNoise", nu=10, sigma=.4)
+        self.DeathNoise        = .4#pm.HalfStudentT("DeathNoise",        nu=10, sigma=.4)
         self.HyperGrowthRateMean = pm.HalfStudentT("HyperGrowthRateMean", nu=10, sigma=.08)
         self.HyperGrowthRateVar  = pm.HalfStudentT("HyperGrowthRateVar", nu=10, sigma=.3)
 
