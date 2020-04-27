@@ -167,31 +167,6 @@ class BaseCMModel(Model):
 
             labels = self.d.Active.data[country_indx, :]
 
-<<<<<<< HEAD
-            plt.errorbar(days_x, means, yerr=err, fmt="-D", linewidth=1, markersize=2, label="Infected",
-                         zorder=1)
-            plt.errorbar(days_x, means_delayed, yerr=err_delayed, fmt="-o", linewidth=1, markersize=2,
-                         label="Mean Pred Confirmed", zorder=2)
-            plt.scatter(self.ObservedDaysIndx, labels[self.ObservedDaysIndx], label="Observed Confirmed", marker="o",
-                        s=6, color="tab:purple",
-                        zorder=3)
-            plt.scatter(self.ObservedDaysIndx, self.d.Deaths[country_indx, self.ObservedDaysIndx], label="Deaths", marker="o",
-                        s=4, color="black",
-                        zorder=4)
-            
-            active_cms = self.d.ActiveCMs[country_indx,:,:]
-            lines = plt.step(self.ObservedDaysIndx, 1+10**7*active_cms[:, self.ObservedDaysIndx].T )
-            plt.legend(lines, cm_labels)
-
-||||||| merged common ancestors
-            plt.errorbar(days_x, means, yerr=err, fmt="-D", linewidth=1, markersize=2, label="Infected",
-                         zorder=1)
-            plt.errorbar(days_x, means_delayed, yerr=err_delayed, fmt="-o", linewidth=1, markersize=2,
-                         label="Mean Pred Confirmed", zorder=2)
-            plt.scatter(self.ObservedDaysIndx, labels[self.ObservedDaysIndx], label="Observed Confirmed", marker="o",
-                        s=6, color="tab:purple",
-                        zorder=3)
-=======
             plt.errorbar(
                 days_x,
                 means,
@@ -221,7 +196,6 @@ class BaseCMModel(Model):
                 color="tab:purple",
                 zorder=3,
             )
->>>>>>> validation-holdout
 
             plt.scatter(
                 days_x,
@@ -4102,119 +4076,290 @@ class CMOneModel(BaseCMModel):
             plt.subplot(5, 3, 3 * (country_indx % 5) + 1)
 
             ax = plt.gca()
-            means, li, ui, err = produce_CIs(self.trace.Infected[:, country_indx, :])
+            means, li, ui, err = produce_CIs(
+                self.trace.Infected[:, country_indx, :]
+            )
+            means_delayed, li_delayed, ui_delayed, err_delayed = produce_CIs(
+                self.trace.ExpectedConfirmed[:, country_indx, :]
+            )
+            means_delayed_death, li_delayed_death, ui_delayed_death, err_delayed_death = produce_CIs(
+                self.trace.ExpectedDeaths[:, country_indx, :]
+            )
             days = self.d.Ds
             days_x = np.arange(len(days))
 
             min_x = 5
             max_x = len(days) - 1
 
-            if hasattr(self.trace, 'ExpectedConfirmed'):    
-                means_delayed, li_delayed, ui_delayed, err_delayed = produce_CIs( self.trace.ExpectedConfirmed[:, country_indx, :])
-                plt.errorbar(days_x, means_delayed, yerr=err_delayed, fmt="-o", linewidth=1, markersize=2,
-                             label="Mean Pred Confirmed", zorder=2)
-
-            if hasattr(self.trace, 'ExpectedDeaths'):    
-                means_delayed_death, li_delayed_death, ui_delayed_death, err_delayed_death = produce_CIs( self.trace.ExpectedDeaths[:, country_indx, :])
-                plt.errorbar(days_x, means_delayed_death, yerr=err_delayed_death, fmt="-o", linewidth=1, markersize=2,
-                             label="Mean Pred Deaths", zorder=2)
+            labels = self.d.NewDeaths[country_indx, :]
 
 
-            plt.errorbar(days_x, means, yerr=err, fmt="-D", linewidth=1, markersize=2, label="Infected",
-                         zorder=1)
-
-            plt.scatter(self.ObservedDaysIndx, self.d.Active.data[country_indx, self.ObservedDaysIndx], label="Observed Confirmed", marker="o",
-                        s=6, color="tab:purple",
-                        zorder=3)
-            plt.scatter(self.ObservedDaysIndx, self.d.Deaths.data[country_indx, self.ObservedDaysIndx], label="Deaths", marker="o",
-                        s=4, color="black",
-                        zorder=4)
+            plt.errorbar(
+                days_x,
+                means,
+                yerr=err,
+                fmt="-D",
+                linewidth=1,
+                markersize=2,
+                label="Infected",
+                zorder=1,
+            )
+            plt.errorbar(
+                days_x,
+                means_delayed,
+                yerr=err_delayed,
+                fmt="-o",
+                linewidth=1,
+                markersize=2,
+                label="Mean Pred Confirmed",
+                zorder=2,
+            )
+            plt.errorbar(
+                days_x,
+                means_delayed_death,
+                yerr=err_delayed_death,
+                fmt="-o",
+                linewidth=1,
+                markersize=2,
+                label="Mean Deaths Pred Confirmed",
+                zorder=2,
+            )
+            plt.scatter(
+                self.ObservedDaysIndx,
+                labels.data[self.ObservedDaysIndx],
+                label="Observed Dead",
+                marker="o",
+                s=8,
+                color="tab:purple",
+                zorder=3,
+            )
+            plt.scatter(
+                self.ObservedDaysIndx,
+                self.d.Active.data[country_indx, :][self.ObservedDaysIndx],
+                label="Observed Dead",
+                marker="o",
+                s=8,
+                color="tab:purple",
+                zorder=3,
+            )
 
             # plot countermeasures
+            colors = ["tab:purple",
+                      "tab:blue",
+                      "silver",
+                      "gray",
+                      "black",
+                      "tomato",
+                      "tab:red",
+                      "hotpink",
+                      "tab:green"]
+
             CMs = self.d.ActiveCMs[country_indx, :, :]
             nCMs, _ = CMs.shape
             CM_changes = CMs[:, 1:] - CMs[:, :-1]
             height = 0
             for cm in range(nCMs):
-                changes = np.nonzero(CM_changes[cm, :])
+                changes = np.nonzero(CM_changes[cm, :])[0].tolist()
                 for c in changes:
-                    if c.size > 0:
-                        height += 1
-                        if CM_changes[cm, c] == 1:
-                            plt.plot([c, c], [0, 10 ** 6], "--g", alpha=0.5, linewidth=1, zorder=-2)
-                            plt.text((c - min_x) / (max_x - min_x), 1 - (0.035 * (height)), f"{cm + 1}", color="g",
-                                     transform=ax.transAxes, fontsize=5, backgroundcolor="white",
-                                     horizontalalignment="center", zorder=-1,
-                                     bbox=dict(facecolor='white', edgecolor='g', boxstyle='round'))
-                        else:
-                            plt.plot([c, c], [0, 10 ** 6], "--r", alpha=0.5, linewidth=1, zorder=-2)
-                            plt.text((c - min_x) / (max_x - min_x), 1 - (0.035 * (height)), f"{cm + 1}", color="r",
-                                     transform=ax.transAxes, fontsize=5, backgroundcolor="white",
-                                     horizontalalignment="center", zorder=-1,
-                                     bbox=dict(facecolor='white', edgecolor='g', boxstyle='round'))
+                    height += 1
+                    if CM_changes[cm, c] == 1:
+                        plt.plot(
+                            [c, c],
+                            [0, 10 ** 6],
+                            "--g",
+                            alpha=0.5,
+                            linewidth=1,
+                            zorder=-2,
+                        )
+                        plt.text(
+                            (c - min_x) / (max_x - min_x),
+                            1 - (0.035 * (height)),
+                            f"{cm + 1}",
+                            color=colors[cm],
+                            transform=ax.transAxes,
+                            fontsize=5,
+                            backgroundcolor="white",
+                            horizontalalignment="center",
+                            zorder=-1,
+                            bbox=dict(
+                                facecolor="white", edgecolor=colors[cm], boxstyle="round"
+                            ),
+                        )
+                    else:
+                        plt.plot(
+                            [c, c],
+                            [0, 10 ** 6],
+                            "--r",
+                            alpha=0.5,
+                            linewidth=1,
+                            zorder=-2,
+                        )
+                        plt.text(
+                            (c - min_x) / (max_x - min_x),
+                            1 - (0.035 * (height)),
+                            f"{cm + 1}",
+                            color=colors[cm],
+                            transform=ax.transAxes,
+                            fontsize=5,
+                            backgroundcolor="white",
+                            horizontalalignment="center",
+                            zorder=-1,
+                            bbox=dict(
+                                facecolor="white", edgecolor=colors[cm], boxstyle="round"
+                            ),
+                        )
 
             ax.set_yscale("log")
             plt.plot([0, 10 ** 6], [0, 10 ** 6], "-r")
-            plt.xlim([0, max_x])
-            plt.ylim([10 ** 0, 10 ** 6])
-            plt.title(f"Region {region}")
+            plt.xlim([min_x, max_x])
+            plt.ylim([10 ** -1, 10 ** 6])
+
+            locs = np.arange(min_x, max_x, 7)
+            xlabels = [f"{days[ts].day}-{days[ts].month}" for ts in locs]
+            plt.xticks(locs, xlabels, rotation=-30)
 
             plt.subplot(5, 3, 3 * (country_indx % 5) + 2)
 
             ax1 = plt.gca()
-            means_growth, _, _, err = produce_CIs(self.trace.ExpectedGrowth[:, country_indx, :])
-            actual_growth, _, _, err_act = produce_CIs(self.trace.Growth[:, country_indx, :])
+            means_growth, _, _, err = produce_CIs(
+                self.trace.ExpectedGrowth[:, country_indx, :]
+            )
+            actual_growth, _, _, err_act = produce_CIs(
+                self.trace.Growth[:, country_indx, :]
+            )
 
-            first_day = np.min(self.ObservedDaysIndx)
-            plt.errorbar(days_x, np.exp(actual_growth), yerr=err_act, fmt="-x", linewidth=1, markersize=2,
-                         label="Predicted Growth",
-                         zorder=1, color="tab:orange")
-            plt.errorbar(days_x, np.exp(means_growth), yerr=err, fmt="-D", linewidth=1, markersize=2,
-                         label="Expected Growth",
-                         zorder=2, color="tab:blue")
+            plt.errorbar(
+                days_x,
+                np.exp(actual_growth),
+                yerr=err_act,
+                fmt="-x",
+                linewidth=1,
+                markersize=2,
+                label="Predicted Growth",
+                zorder=1,
+                color="tab:orange",
+            )
+            plt.errorbar(
+                days_x,
+                np.exp(means_growth),
+                yerr=err,
+                fmt="-D",
+                linewidth=1,
+                markersize=2,
+                label="Expected Growth",
+                zorder=2,
+                color="tab:blue",
+            )
 
             CMs = self.d.ActiveCMs[country_indx, :, :]
             nCMs, _ = CMs.shape
             CM_changes = CMs[:, 1:] - CMs[:, :-1]
             height = 0
             for cm in range(nCMs):
-                changes = np.nonzero(CM_changes[cm, :])
+                changes = np.nonzero(CM_changes[cm, :])[0].tolist()
                 for c in changes:
-                    if c.size > 0:
-                        height += 1
-                        if CM_changes[cm, c] == 1:
-                            plt.plot([c, c], [0, 2], "--g", alpha=0.5, linewidth=1, zorder=-2)
-                            plt.text(c, 2 - (0.05 * (height)), f"{cm + 1}", color="g",
-                                     fontsize=5, backgroundcolor="white",
-                                     horizontalalignment="center", zorder=-1,
-                                     bbox=dict(facecolor='white', edgecolor='g', boxstyle='round'))
-                        else:
-                            plt.plot([c, c], [0, 2], "--r", alpha=0.5, linewidth=1, zorder=-2)
-                            plt.text(c, 2 - (0.05 * (height)), f"{cm + 1}", color="r",
-                                     fontsize=5, backgroundcolor="white",
-                                     horizontalalignment="center", zorder=-1,
-                                     bbox=dict(facecolor='white', edgecolor='g', boxstyle='round'))
-            plt.ylim([0.8, 2])
-            plt.xlim([first_day, 66])
+                    height += 1
+                    if CM_changes[cm, c] == 1:
+                        plt.plot(
+                            [c, c], [0, 2], "--g", alpha=0.5, linewidth=1, zorder=-2
+                        )
+                        plt.text(
+                            c,
+                            2 - (0.05 * (height)),
+                            f"{cm + 1}",
+                            color=colors[cm],
+                            fontsize=5,
+                            backgroundcolor="white",
+                            horizontalalignment="center",
+                            zorder=-1,
+                            bbox=dict(
+                                facecolor="white", edgecolor=colors[cm], boxstyle="round"
+                            ),
+                        )
+                    else:
+                        plt.plot(
+                            [c, c], [0, 2], "--r", alpha=0.5, linewidth=1, zorder=-2
+                        )
+                        plt.text(
+                            c,
+                            2 - (0.05 * (height)),
+                            f"{cm + 1}",
+                            color=colors[cm],
+                            fontsize=5,
+                            backgroundcolor="white",
+                            horizontalalignment="center",
+                            zorder=-1,
+                            bbox=dict(
+                                facecolor="white", edgecolor=colors[cm], boxstyle="round"
+                            ),
+                        )
+            plt.ylim([0.7, 2])
+            plt.xlim([min_x, max_x])
+            plt.ylabel("Growth")
+            locs = np.arange(min_x, max_x, 5)
+            xlabels = [f"{days[ts].day}-{days[ts].month}" for ts in locs]
+            plt.xticks(locs, xlabels, rotation=-30)
+            plt.title(f"Region {region}")
 
             plt.subplot(5, 3, 3 * (country_indx % 5) + 3)
+            axis_scale = 1.5
             ax2 = plt.gca()
             z1_mean, _, _, err_1 = produce_CIs(self.trace.Z1[:, country_indx, :])
-            plt.errorbar(days_x, z1_mean, yerr=err_1, fmt="-x", linewidth=1, markersize=2,
-                         label="Growth Noise",
-                         zorder=1, color="tab:blue")
-            plt.xlim([first_day, 66])
+            z2_mean, _, _, err_2 = produce_CIs(self.trace.Z2[:, country_indx, :])
+            ln1 = plt.errorbar(
+                days_x,
+                z1_mean,
+                yerr=err_1,
+                fmt="-x",
+                linewidth=1,
+                markersize=2,
+                label="Growth Noise",
+                zorder=1,
+                color="tab:blue",
+            )
+            plt.xlim([min_x, max_x])
+            plt.ylim([-axis_scale*(np.max(err_1)+np.max(z1_mean)), axis_scale*np.max(err_1)+np.max(z1_mean)])
+            locs = np.arange(min_x, max_x, 7)
+            xlabels = [f"{days[ts].day}-{days[ts].month}" for ts in locs]
+            plt.xticks(locs, xlabels, rotation=-30)
+            plt.ylabel("Growth Noise")
+            ax3 = plt.twinx()
+
+            ln2 = plt.errorbar(
+                self.ObservedDaysIndx,
+                z2_mean,
+                yerr=err_2,
+                fmt="-x",
+                linewidth=1,
+                markersize=2,
+                label="Death Noise",
+                zorder=1,
+                color="tab:orange",
+            )
+            plt.ylabel("Output Noise")
+
+            """
+            plt.ylim([-axis_scale*np.max(err_2+np.max(z2_mean)), axis_scale*(np.max(err_2)+np.max(z2_mean))])
+            lines, labels = ax2.get_legend_handles_labels()
+            lines2, labels2 = ax3.get_legend_handles_labels()
+            """
+
+
+
+            sns.despine(ax=ax)
+            sns.despine(ax=ax1)
 
             if country_indx % 5 == 4 or country_indx == len(self.d.Rs) - 1:
                 plt.tight_layout()
                 if save_fig:
-                    save_fig_pdf(output_dir, f"CountryPredictionPlot{((country_indx + 1) / 5):.1f}")
+                    save_fig_pdf(
+                        output_dir,
+                        f"CountryPredictionPlot{((country_indx + 1) / 5):.1f}",
+                    )
 
             elif country_indx % 5 == 0:
-                ax.legend(prop={'size': 6})
-                ax1.legend(prop={'size': 6})
-                ax2.legend(prop={'size': 6})
-
+                ax.legend(prop={"size": 8})
+                ax1.legend(prop={"size": 8})
 
 class CMConfirmed(CMOneModel):
     def build(self):
@@ -4355,19 +4500,88 @@ class CMConfirmed2(CMOneModel):
 
 class CMConfirmedAndDeaths(CMOneModel):
     def build(self):
+        self.DeathDelayProb = np.array(
+            [
+                0,
+                2.10204045e-06,
+                3.22312869e-05,
+                1.84979560e-04,
+                6.31412913e-04,
+                1.53949439e-03,
+                3.07378372e-03,
+                5.32847235e-03,
+                8.32057678e-03,
+                1.19864352e-02,
+                1.59626950e-02,
+                2.02752812e-02,
+                2.47013776e-02,
+                2.90892369e-02,
+                3.30827134e-02,
+                3.66035310e-02,
+                3.95327745e-02,
+                4.19039762e-02,
+                4.35677913e-02,
+                4.45407357e-02,
+                4.49607434e-02,
+                4.47581467e-02,
+                4.40800885e-02,
+                4.28367817e-02,
+                4.10649618e-02,
+                3.93901360e-02,
+                3.71499615e-02,
+                3.48922699e-02,
+                3.24149652e-02,
+                3.00269472e-02,
+                2.76836725e-02,
+                2.52794388e-02,
+                2.29349630e-02,
+                2.07959867e-02,
+                1.86809336e-02,
+                1.67279378e-02,
+                1.50166767e-02,
+                1.33057159e-02,
+                1.17490048e-02,
+                1.03030011e-02,
+                9.10633952e-03,
+                7.97333972e-03,
+                6.95565185e-03,
+                6.05717970e-03,
+                5.25950540e-03,
+                4.61137626e-03,
+                3.94442886e-03,
+                3.37948046e-03,
+                2.91402865e-03,
+                2.48911619e-03,
+                2.14007737e-03,
+                1.81005702e-03,
+                1.54339818e-03,
+                1.32068199e-03,
+                1.11358095e-03,
+                9.53425490e-04,
+                7.99876440e-04,
+                6.76156345e-04,
+                5.68752088e-04,
+                4.93278826e-04,
+                4.08596625e-04,
+                3.37127249e-04,
+                2.92283720e-04,
+                2.41934846e-04,
+                1.98392580e-04,
+            ]
+        )
         nR = self.nRs
         nD = self.nDs
 
         self.ConfirmationNoise = .4#pm.HalfStudentT("ConfirmationNoise", nu=10, sigma=.4)
-        self.DeathNoise        = .4#pm.HalfStudentT("DeathNoise",        nu=10, sigma=.4)
-        self.HyperGrowthRateMean = pm.HalfStudentT("HyperGrowthRateMean", nu=10, sigma=.08)
-        self.HyperGrowthRateVar  = pm.HalfStudentT("HyperGrowthRateVar", nu=10, sigma=.3)
+        self.DeathsNoise        = pm.HalfStudentT("DeathsNoise",        nu=10, sigma=.4)
+        self.HyperGrowthRateMean = pm.HalfStudentT("HyperGrowthRateMean", nu=10, sigma=.3)
+        self.HyperGrowthRateVar  = pm.HalfStudentT("HyperGrowthRateVar", nu=10, sigma=.5)
 
         pm.Lognormal("RegionGrowthRate", T.log(self.HyperGrowthRateMean), T.log(self.HyperGrowthRateVar), shape=nR)
 
         self.ActiveCMs = pm.Data("ActiveCMs", self.d.ActiveCMs)
         
-        self.CM_Alpha = pm.Gamma( "CM_Alpha", 0.5, 1, shape=(self.nCMs,))
+        self.CM_Alpha = pm.Normal("CM_Alpha", 0, .2, shape=self.nCMs) #pm.Gamma( "CM_Alpha", 0.5, 1, shape=(self.nCMs,))
         self.Det("CMReduction", T.exp((-1.0) * self.CM_Alpha))
         
         self.ActiveCMReduction = (
@@ -4381,33 +4595,24 @@ class CMConfirmedAndDeaths(CMOneModel):
             plot_trace=False)
 
 
-        n = 10
-        self.ReportRateAlpha = pm.Lognormal("ReportRateAlpha", np.log(5) ,2 ) 
-        self.ReportRateBeta  = pm.Lognormal("ReportRateBeta", np.log(5) ,2 ) 
-        self.ReportRate = pm.Beta("ReportRate", self.ReportRateAlpha ,self.ReportRateBeta, shape=nR) 
-        self.DeathRate = .01 #pm.Beta("DeathRate", .002*n + 1, n + 1) 
+        self.ReportRateMean = pm.StudentT("ReportRateMean", nu=10,mu= 0, sigma=2) 
+        self.ReportRateStd  = pm.HalfStudentT("ReportRateStd", nu=10, sigma=2) 
+        self.ReportRateLog = pm.Normal("ReportRateLog", self.ReportRateMean, self.ReportRateStd, shape=nR) #pm.Beta("ReportRateLog", self.ReportRateAlpha ,self.ReportRateBeta, shape=nR) 
+        self.DeathRate = .005 
 
         def norm(x): 
             s = T.sum(x)
             return x / s
 
-        #self.DelayCMean  = pm.Normal("DelayCMean", sigma=1.5, mu=8)
-        #self.DelayCAlpha = pm.Normal("DelayCAlpha", sigma=1.5, mu=6.5)
-        self.DelayCDist = pm.Gamma.dist(mu=8, sigma=5)#pm.NegativeBinomial.dist(mu=self.DelayCMean, alpha=self.DelayCAlpha)
+        self.DelayCMean  = pm.Normal("DelayCMean", sigma=1.5, mu=8)
+        self.DelayCAlpha = pm.Normal("DelayCAlpha", sigma=1.5, mu=6.5)
+        self.DelayCDist = pm.Gamma.dist(mu=self.DelayCMean, sigma=self.DelayCAlpha)#pm.NegativeBinomial.dist(mu=self.DelayCMean, alpha=self.DelayCAlpha)
 
         xC = np.arange(30)
         self.ConfirmDelayProb = norm(T.exp(self.DelayCDist.logp(xC)))
 
-        #self.DelayDMean  = pm.StudentT("DelayDMean", sigma=5, mu=23.5, nu=15)
-        #self.DelayDAlpha = pm.StudentT("DelayDAlpha", sigma=3, mu=8, nu=15)
-        self.DelayDDist = pm.Gamma.dist(mu=23, sigma=10)#pm.Gamma.dist(mu=self.DelayDMean, alpha=self.DelayDAlpha)
 
-        xD = np.arange( 60)
-        self.DeathDelayProb = norm(T.exp(self.DelayDDist.logp(xD)))
-
-
-
-        self.Normal( "Growth", self.ExpectedGrowth, self.DailyGrowthNoise, shape=(nR, nD), plot_trace=False)
+        self.Normal( "Growth", self.ExpectedGrowth, .1, shape=(nR, nD), plot_trace=False)
 
         self.Det( "Z1", self.Growth - self.ExpectedGrowth, plot_trace=False) 
 
@@ -4424,11 +4629,11 @@ class CMConfirmedAndDeaths(CMOneModel):
         expected_confirmed = T.nnet.conv2d(self.Infected.reshape((1, 1, nR, nD)),
                  self.ConfirmDelayProb[None, None, None, :],
                                            border_mode="full")[:, :, :, :nD]
-        self.Det("ExpectedConfirmed",self.ReportRate[:,None] * expected_confirmed.reshape((nR, nD)), plot_trace=False)
+        self.Det("ExpectedConfirmed",T.exp(self.ReportRateLog[:,None]) * expected_confirmed.reshape((nR, nD)), plot_trace=False)
 
         
         self.ObservedConfirmed = pm.Normal("ObservedConfirmed", T.log(self.ExpectedConfirmed[:, self.ObservedDaysSlc]),
-                                      self.ConfirmationNoise , #* T.reshape(self.RegionNoiseScale, (nR, 1)),
+                                      self.ConfirmationNoise, #* T.reshape(self.RegionNoiseScale, (nR, 1)),
                                       shape=(nR, nD-10),
                                       observed=np.log(self.d.Active[:, self.ObservedDaysSlc]))
 
@@ -4438,11 +4643,24 @@ class CMConfirmedAndDeaths(CMOneModel):
                                         border_mode="full")[:, :, :, :nD]
         self.Det("ExpectedDeaths", expected_deaths.reshape((nR, nD)), plot_trace=False)
 
-        self.ObservedDeaths = pm.Normal("ObservedDeaths", T.log(self.ExpectedDeaths[:, self.ObservedDaysSlc]),
-                                      self.DeathNoise , #* T.reshape(self.RegionNoiseScale, (nR, 1)),
-                                      shape=(nR, nD-10),
-                                      observed=np.log(self.d.Deaths[:, self.ObservedDaysSlc]))
+        self.ObservedDeaths = pm.Normal(
+            "ObservedDeaths",
+            T.log(self.ExpectedDeaths[:, self.ObservedDaysIndx]),
+            self.DeathsNoise,
+            shape=(nR, nD),
+            observed=np.log(self.d.NewDeaths[:, self.ObservedDaysIndx])
+        )
+        """
+        self.ObservedDeaths = pm.NegativeBinomial(
+            "ObservedDeaths",
+            mu=self.ExpectedDeaths[:, self.ObservedDaysIndx],
+            alpha=self.Phi + 500, #self.ExpectedDeaths[:, self.ObservedDaysIndx] + self.Phi,
+            shape=(nR, nD),
+            observed=self.d.NewDeaths[:, self.ObservedDaysIndx]
+        )
+        """
 
-        self.Det( "Z2", T.log(self.ObservedConfirmed / self.ExpectedConfirmed[:, self.ObservedDaysSlc]), plot_trace=False
+        #self.Det( "Z2", T.log(self.ObservedConfirmed / self.ExpectedConfirmed[:, self.ObservedDaysSlc]), plot_trace=False
+        self.Det( "Z2", T.log(1 / self.ExpectedConfirmed[:, self.ObservedDaysSlc]), plot_trace=False
         )
 

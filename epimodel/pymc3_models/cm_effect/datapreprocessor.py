@@ -186,14 +186,6 @@ class DataPreprocessor(object):
         # [country, day]
         Active = np.ma.masked_invalid(Active.astype(theano.config.floatX))
 
-        Deaths = (
-            johnhop_ds["Deaths"]
-                .loc[(tuple(filtered_countries), Ds)]
-                .unstack(1)
-                .values
-        )
-        assert Deaths.shape == (nCs, nDs)
-
         logger.info(
             f"Data Preprocessing Complete using:\n\n{json.dumps(self.generate_params_dict(), indent=4)}\n"
             f"Selected {len(filtered_countries)} Regions: f{filtered_countries}"
@@ -207,15 +199,29 @@ class DataPreprocessor(object):
         # [country, day]
         Deaths = np.ma.masked_invalid(Deaths.astype(theano.config.floatX))
 
+        NewDeaths = np.zeros(shape=Deaths.shape)
+        NewDeaths[:, 1:] = Deaths[:, 1:] - Deaths[:, :-1]
+        NewDeaths[np.isnan(NewDeaths)] = 0
+        NewDeaths[NewDeaths <= 0] = np.nan
+        NewDeaths = np.ma.masked_invalid(NewDeaths.astype(theano.config.floatX))
+        NewDeaths = NewDeaths.astype(int)
+
         loaded_data = PreprocessedData(
-            Active, Confirmed, Deaths, ActiveCMs, selected_features, filtered_countries, Ds
+            Active,
+            Confirmed,
+            ActiveCMs,
+            selected_features,
+            filtered_countries,
+            Ds,
+            Deaths,
+            NewDeaths
         )
 
         return loaded_data
 
 
 class PreprocessedData(object):
-    def __init__(self, Active, Confirmed, Deaths, ActiveCMs, CMs, Rs, Ds):
+    def __init__(self, Active, Confirmed, ActiveCMs, CMs, Rs, Ds, Deaths, NewDeaths):
         super().__init__()
         self.Active = Active
         self.Confirmed = Confirmed
