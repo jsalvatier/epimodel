@@ -4608,7 +4608,7 @@ class CMConfirmedAndDeaths(CMOneModel):
         self.DelayCAlpha = pm.Normal("DelayCAlpha", sigma=1.5, mu=6.5)
         self.DelayCDist = pm.Gamma.dist(mu=self.DelayCMean, sigma=self.DelayCAlpha)#pm.NegativeBinomial.dist(mu=self.DelayCMean, alpha=self.DelayCAlpha)
 
-        xC = np.arange(30)
+        xC = np.arange(60)
         self.ConfirmDelayProb = norm(T.exp(self.DelayCDist.logp(xC)))
 
 
