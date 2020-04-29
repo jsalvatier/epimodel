@@ -4666,7 +4666,6 @@ class CMCombined(BaseCMModel):
         sns.despine()
         if save_fig:
             save_fig_pdf(output_dir, f"CMEffect")
-                ax2.legend(lines+lines2, labels + labels2, prop={"size": 8})
 
 
 
@@ -4699,6 +4698,8 @@ class CMOneModel(BaseCMModel):
 
         self.ObservedDaysIndx = range(self.nDs)[slice(CMDelayCut, self.nDs)]
         self.ObservedDaysSlc = slice(CMDelayCut, self.nDs)
+        self.OR_indxs = list(range(self.nRs))
+        self.ORs = copy.deepcopy(self.d.Rs)
 
     def plot_region_predictions(self, save_fig=True, output_dir="./out"):
         assert self.trace is not None
@@ -4779,6 +4780,15 @@ class CMOneModel(BaseCMModel):
 
             # plot countermeasures
             colors = ["tab:purple",
+                      "tab:blue",
+                      "silver",
+                      "gray",
+                      "black",
+                      "tomato",
+                      "tab:red",
+                      "hotpink",
+                      "tab:green",
+                      "tab:purple",
                       "tab:blue",
                       "silver",
                       "gray",
