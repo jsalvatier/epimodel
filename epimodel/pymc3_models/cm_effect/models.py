@@ -622,9 +622,7 @@ class CMActive_Final(BaseCMModel):
             self.HyperRMean = pm.StudentT(
                 "HyperRMean", nu=10, sigma=1, mu=np.log(2.5),
             )
-            self.HyperRVar = pm.HalfStudentT(
-                "HyperRVar", nu=10, sigma=0.3
-            )
+            self.HyperRVar = pm.HalfStudentT( "HyperRVar", nu=10, sigma=0.3)
 
             self.RegionLogR = pm.Normal("RegionLogR", self.HyperRMean,
                                         self.HyperRVar,
@@ -1004,9 +1002,19 @@ class CMCombined_Final(BaseCMModel):
                 "HyperRVar", nu=10, sigma=0.3
             )
 
-            self.RegionLogR = pm.Normal("RegionLogR", self.HyperRMean,
+            self.RegionLogROffset = pm.Normal("RegionLogROffset", 0,
+                                        1,
+                                        shape=(self.nORs,))
+
+            self.RegionLogR = self.Det("RegionLogR", self.HyperRMean + self.RegionLogROffset * self.HyperRVar, 
+                    plot_trace=False)
+                    
+            """
+                    pm.Normal("RegionLogR", self.HyperRMean,
                                         self.HyperRVar,
                                         shape=(self.nORs,))
+
+            """
 
             self.ActiveCMs = pm.Data("ActiveCMs", self.d.ActiveCMs)
 
