@@ -873,6 +873,18 @@ class CMActive_Final(BaseCMModel):
                 # ax4.legend(lines + lines2, labels + labels2, prop={"size": 8})
 
 
+class NegativeBinomialIgnoreMasked(pm.NegativeBinomial):
+    def __init__(self, mu, alpha, mask, *args, **kwargs):
+        super().__init__(mu, alpha, *args, **kwargs)
+        self.mask = mask
+
+    def logp(self, value):
+
+        l = super().logp(value)
+        return T.switch(self.mask, 0, l)
+
+
+
 class CMCombined_Final(BaseCMModel):
     def __init__(
             self, data, name="", model=None
@@ -1082,17 +1094,18 @@ class CMCombined_Final(BaseCMModel):
             self.Phi_1 = 30
 
             # effectively handle missing values ourselves
-            self.ObservedCases = pm.NegativeBinomial(
+            self.ObservedCases = NegativeBinomialIgnoreMasked(
                 "ObservedCases",
-                mu=self.ExpectedCases.reshape((self.nORs * self.nDs,))[self.all_observed_active],
+                mu=self.ExpectedCases,
                 alpha=self.Phi_1,
-                shape=(len(self.all_observed_active),),
-                observed=self.d.NewCases.data.reshape((self.nORs * self.nDs,))[self.all_observed_active]
+                mask=self.d.NewCases.mask,
+                observed=self.d.NewCases.data
+
             )
 
             self.Z2C = pm.Deterministic(
                 "Z2C",
-                self.ObservedCases - self.ExpectedCases.reshape((self.nORs * self.nDs,))[self.all_observed_active]
+                self.ObservedCases - self.ExpectedCases
             )
 
             self.InitialSizeDeaths_log = pm.Normal("InitialSizeDeaths_log", -3, 20, shape=(self.nORs,))
@@ -1114,28 +1127,33 @@ class CMCombined_Final(BaseCMModel):
             self.Phi_2 = 30
 
             # effectively handle missing values ourselves
-            self.ObservedDeaths = pm.NegativeBinomial(
+            self.ObservedDeaths = NegativeBinomialIgnoreMasked(
                 "ObservedDeaths",
-                mu=self.ExpectedDeaths.reshape((self.nORs * self.nDs,))[self.all_observed_deaths],
+                mu=self.ExpectedDeaths,
                 alpha=self.Phi_2,
-                shape=(len(self.all_observed_deaths),),
-                observed=self.d.NewDeaths.data.reshape((self.nORs * self.nDs,))[self.all_observed_deaths]
+                mask=self.d.NewDeaths.mask,
+                observed=self.d.NewDeaths.data
             )
 
             self.Det(
                 "Z2D",
-                self.ObservedDeaths - self.ExpectedDeaths.reshape((self.nORs * self.nDs,))[self.all_observed_deaths]
+                self.ObservedDeaths - self.ExpectedDeaths
             )
 
-    def plot_region_predictions(self, plot_style, save_fig=True, output_dir="./out"):
+    def plot_region_predictions(self, plot_style, save_fig=True, output_dir="./out", regions=None):
         assert self.trace is not None
 
-        for country_indx, region in zip(self.OR_indxs, self.ORs):
+        
+        i_regions = list(zip(self.OR_indxs, self.ORs))
+        if not (regions is None):
+            i_regions = [(i, r) for (i, r) in i_regions if r in regions] 
+        
+        for index, (country_indx, region) in enumerate(i_regions):
 
-            if country_indx % 5 == 0:
+            if index % 5 == 0:
                 plt.figure(figsize=(12, 20), dpi=300)
 
-            plt.subplot(5, 3, 3 * (country_indx % 5) + 1)
+            plt.subplot(5, 3, 3 * (index % 5) + 1)
 
             means_ic, lu_ic, up_ic, err_ic = produce_CIs(
                 self.trace.InfectedCases[:, country_indx, :]
@@ -1286,7 +1304,7 @@ class CMCombined_Final(BaseCMModel):
             plt.xticks(locs, xlabels, rotation=-30)
             ax1 = add_cms_to_plot(ax, self.d.ActiveCMs, country_indx, min_x, max_x, days, plot_style)
 
-            plt.subplot(5, 3, 3 * (country_indx % 5) + 2)
+            plt.subplot(5, 3, 3 * (index % 5) + 2)
 
             ax2 = plt.gca()
 
@@ -1326,7 +1344,7 @@ class CMCombined_Final(BaseCMModel):
             plt.title(f"Region {region}")
             ax3 = add_cms_to_plot(ax2, self.d.ActiveCMs, country_indx, min_x, max_x, days, plot_style)
 
-            plt.subplot(5, 3, 3 * (country_indx % 5) + 3)
+            plt.subplot(5, 3, 3 * (index % 5) + 3)
             axis_scale = 1.5
             ax4 = plt.gca()
             # z1C_mean, lu_z1C, up_z1C, err_1C = produce_CIs(self.trace.Z1C[:, country_indx, :])
@@ -1367,7 +1385,7 @@ class CMCombined_Final(BaseCMModel):
             sns.despine(ax=ax2)
             sns.despine(ax=ax3)
 
-            if country_indx % 5 == 4 or country_indx == len(self.d.Rs) - 1:
+            if index % 5 == 4 or index == len(i_regions) - 1:
                 plt.tight_layout()
                 if save_fig:
                     save_fig_pdf(
@@ -1375,7 +1393,7 @@ class CMCombined_Final(BaseCMModel):
                         f"CountryPredictionPlot{((country_indx + 1) / 5):.1f}",
                     )
 
-            elif country_indx == 0:
+            elif index == 0:
                 ax.legend(prop={"size": 8}, loc="center left")
                 ax2.legend(prop={"size": 8}, loc="lower left")
                 # ax4.legend(lines + lines2, labels + labels2, prop={"size": 8})
