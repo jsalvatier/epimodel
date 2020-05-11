@@ -638,9 +638,7 @@ class CMActive_Final(BaseCMModel):
             self.HyperRMean = pm.StudentT(
                 "HyperRMean", nu=10, sigma=1, mu=np.log(2.5),
             )
-            self.HyperRVar = pm.HalfStudentT(
-                "HyperRVar", nu=10, sigma=0.3
-            )
+            self.HyperRVar = pm.HalfStudentT( "HyperRVar", nu=10, sigma=0.3)
 
             self.RegionLogR = pm.Normal("RegionLogR", self.HyperRMean,
                                         self.HyperRVar,
