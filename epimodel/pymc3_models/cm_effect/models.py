@@ -458,6 +458,7 @@ class CMDeath_Final(BaseCMModel):
                 days_x, lu_id, up_id, alpha=0.15, color="tab:blue", linewidth=0
             )
 
+
             plt.plot(
                 days_x,
                 means_expected_deaths,
@@ -1264,9 +1265,10 @@ class CMCombined_Final(BaseCMModel):
                 alpha=0.25
             )
 
-            plt.fill_between(
-                days_x, lu_id, up_id, alpha=0.15, color="tab:orange", linewidth=0
-            )
+            if deaths[self.ObservedDaysIndx].count() > 0:
+                plt.fill_between(
+                    days_x, lu_id, up_id, alpha=0.15, color="tab:orange", linewidth=0
+                )
 
             plt.plot(
                 days_x,
@@ -1276,9 +1278,10 @@ class CMCombined_Final(BaseCMModel):
                 color="tab:red"
             )
 
-            plt.fill_between(
-                days_x, lu_ed, up_ed, alpha=0.25, color="tab:red", linewidth=0
-            )
+            if deaths[self.ObservedDaysIndx].count() > 0:
+                plt.fill_between(
+                    days_x, lu_ed, up_ed, alpha=0.25, color="tab:red", linewidth=0
+                )
 
             plt.scatter(
                 self.ObservedDaysIndx,
