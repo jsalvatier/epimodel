@@ -714,9 +714,9 @@ class DataPreprocessor():
         region_names = copy.deepcopy(sorted_regions)
         region_full_names = df.loc[region_names]["Region Name"]
 
-        for f in self.drop_features:
-            logger.info(f"Dropping {f}")
-            df = df.drop(f, axis=1)
+        #for f in self.drop_features:
+        #    logger.info(f"Dropping {f}")
+        #    df = df.drop(f, axis=1)
 
         CMs = list(df.columns[4:])
         nCMs = len(CMs)
