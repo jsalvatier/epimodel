@@ -159,8 +159,8 @@ def process_euro_data(path, regular_data_path, ICL_data_path):
     return data
 
 dp = DataPreprocessor()
-jh_data = dp.preprocess_data("../final_data/data_final.csv")
-eur_data = process_euro_data("../final_data/eur_data.csv", "../final_data/data_final.csv", "../final_data/ICL.csv")
+jh_data = dp.preprocess_data("notebooks/final_data/data_final.csv")
+eur_data = process_euro_data("notebooks/final_data/eur_data.csv", "notebooks/final_data/data_final.csv", "notebooks/final_data/ICL.csv")
 
 
 # In[33]:
@@ -179,16 +179,16 @@ with cm_effect.models.CMCombined_Final(eur_data, cm_plot_style) as eur_model:
     eur_model.build_model()
 
 with eur_model:
-    eur_model.trace = pm.sample(800, cores=4, chains=4, max_treedepth=12)
-    pm.save_trace(eur_model.trace, directory="small-eur")
+    eur_model.trace = pm.sample(8000, cores=4, chains=4, max_treedepth=12, trace=pm.backends.Text('eur-cdc-model'))
+    #pm.save_trace(eur_model.trace, directory="eur-cdc")
 
 
-# In[62]:
 """
+# In[62]:
 with cm_effect.models.CMCombined_Final(jh_data, cm_plot_style) as jh_model:
     jh_model.build_model()
 with jh_model:
-    jh_model.trace = pm.sample(500, cores=4, chains=1, max_treedepth=12)
+    jh_model.trace = pm.sample(8000, cores=4, chains=4, max_treedepth=12)
 
-    pm.save_trace(jh_model.trace, directory="small-eur")
+    pm.save_trace(jh_model.trace, directory="eur-cdc-comparison")
     """
