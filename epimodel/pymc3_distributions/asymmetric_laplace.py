@@ -6,9 +6,10 @@ Asymmetric Laplace Distribution, with location parameter 0. This is used as our 
 See also: https://en.wikipedia.org/wiki/Asymmetric_Laplace_distribution
 """
 import pymc3.distributions.continuous as continuous
+from pymc3.distributions import draw_values, generate_samples
 import theano.tensor as tt
 import numpy as np
-
+from scipy import stats
 
 class AsymmetricLaplace(continuous.Continuous):
     """
@@ -37,23 +38,18 @@ class AsymmetricLaplace(continuous.Continuous):
         :param size: size of sample to draw
         :return: Samples
         """
-        if point is not None:
-            raise NotImplementedError('Random not implemented with point specified')
+        
+        scale, symmetry = draw_values([self.scale, self.symmetry], point=point, size=size)
 
-        if size is not None:
-            u = np.random.uniform(size=size)
-            x = - tt.log((1 - u) * (1 + self.symmetry ** 2)) / (self.symmetry * self.scale) * (
-                    u > ((self.symmetry ** 2) / (1 + self.symmetry ** 2))) + self.symmetry * tt.log(
-                u * (1 + self.symmetry ** 2) / (self.symmetry ** 2)) / self.scale * (
-                        u < ((self.symmetry ** 2) / (1 + self.symmetry ** 2)))
 
-            return x
+        u = generate_samples(
+                    stats.uniform.rvs, dist_shape=self.shape, size=size
+                )
+        x = - np.log((1 - u) * (1 + symmetry ** 2)) / (symmetry * scale) * (
+                np.greater(u , ((symmetry ** 2) / (1 + symmetry ** 2)))) + symmetry * np.log(
+            u * (1 + symmetry ** 2) / (symmetry ** 2)) / scale * (
+                    np.less(u , ((symmetry ** 2) / (1 + symmetry ** 2))))
 
-        u = np.random.uniform()
-        if u > (self.symmetry ** 2) / (1 + self.symmetry ** 2):
-            x = - tt.log((1 - u) * (1 + self.symmetry ** 2)) / (self.symmetry * self.scale)
-        else:
-            x = self.symmetry * tt.log(u * (1 + self.symmetry ** 2) / (self.symmetry ** 2)) / self.scale
 
         return x
 

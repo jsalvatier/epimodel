@@ -7,7 +7,12 @@ import numpy as np
 import pymc3 as pm
 
 import theano.tensor as T
+import theano.tensor as tt
+from pymc3.theanof import floatX, intX, take_along_axis
+from pymc3.distributions.dist_math import bound, factln, binomln, betaln, logpow, random_choice
+from pymc3.distributions.distribution import Discrete, draw_values, generate_samples
 import theano.tensor.signal.conv as C
+import scipy.stats as stats
 
 from epimodel import EpidemiologicalParameters
 from .base_model import BaseCMModel
@@ -109,7 +114,7 @@ class DefaultModel(BaseCMModel):
 
             self.CasesDelayMean = pm.Normal('CasesDelayMean', cases_delay_mean_mean, cases_delay_mean_sd)
             self.CasesDelayDisp = pm.Normal('CasesDelayDisp', cases_delay_disp_mean, cases_delay_disp_sd)
-            cases_delay_dist = pm.NegativeBinomial.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
+            cases_delay_dist = NegativeBinomialCust.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
             bins = np.arange(0, cases_truncation)
             pmf = T.exp(cases_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -127,7 +132,7 @@ class DefaultModel(BaseCMModel):
 
             # effectively handle missing values ourselves
             # output distribution
-            self.ObservedCases = pm.NegativeBinomial(
+            self.ObservedCases = NegativeBinomialCust(
                 "ObservedCases",
                 mu=self.ExpectedCases.reshape((self.nRs * self.nDs,))[self.all_observed_active],
                 alpha=self.PsiCases,
@@ -143,7 +148,7 @@ class DefaultModel(BaseCMModel):
 
             self.DeathsDelayMean = pm.Normal('DeathsDelayMean', deaths_delay_mean_mean, deaths_delay_mean_sd)
             self.DeathsDelayDisp = pm.Normal('DeathsDelayDisp', deaths_delay_disp_mean, deaths_delay_disp_sd)
-            deaths_delay_dist = pm.NegativeBinomial.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
+            deaths_delay_dist = NegativeBinomialCust.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
             bins = np.arange(0, deaths_truncation)
             pmf = T.exp(deaths_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -161,7 +166,7 @@ class DefaultModel(BaseCMModel):
 
             # effectively handle missing values ourselves
             # death output distribution
-            self.ObservedDeaths = pm.NegativeBinomial(
+            self.ObservedDeaths = NegativeBinomialCust(
                 "ObservedDeaths",
                 mu=self.ExpectedDeaths.reshape((self.nRs * self.nDs,))[self.all_observed_deaths],
                 alpha=self.PsiDeaths,
@@ -251,7 +256,7 @@ class DeathsOnlyModel(BaseCMModel):
 
             self.DeathsDelayMean = pm.Normal('DeathsDelayMean', deaths_delay_mean_mean, deaths_delay_mean_sd)
             self.DeathsDelayDisp = pm.Normal('DeathsDelayDisp', deaths_delay_disp_mean, deaths_delay_disp_sd)
-            deaths_delay_dist = pm.NegativeBinomial.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
+            deaths_delay_dist = NegativeBinomialCust.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
             bins = np.arange(0, deaths_truncation)
             pmf = T.exp(deaths_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -272,7 +277,7 @@ class DeathsOnlyModel(BaseCMModel):
                                      self.d.NewDeaths.data.reshape((self.nRs * self.nDs,))[self.all_observed_deaths])
 
             # effectively handle missing values ourselves
-            self.ObservedDeaths = pm.NegativeBinomial(
+            self.ObservedDeaths = NegativeBinomialCust(
                 'ObservedCases',
                 mu=self.ExpectedDeaths.reshape((self.nRs * self.nDs,))[self.all_observed_deaths],
                 alpha=self.Psi,
@@ -362,7 +367,7 @@ class CasesOnlyModel(BaseCMModel):
 
             self.CasesDelayMean = pm.Normal('CasesDelayMean', cases_delay_mean_mean, cases_delay_mean_sd)
             self.CasesDelayDisp = pm.Normal('CasesDelayDisp', cases_delay_disp_mean, cases_delay_disp_sd)
-            cases_delay_dist = pm.NegativeBinomial.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
+            cases_delay_dist = NegativeBinomialCust.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
             bins = np.arange(0, cases_truncation)
             pmf = T.exp(cases_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -380,7 +385,7 @@ class CasesOnlyModel(BaseCMModel):
             self.Psi = pm.HalfNormal('Phi', 5)
 
             # effectively handle missing values ourselves
-            self.ObservedCases = pm.NegativeBinomial(
+            self.ObservedCases = NegativeBinomialCust(
                 'ObservedCases',
                 mu=self.ExpectedCases.reshape((self.nRs * self.nDs,))[self.all_observed_active],
                 alpha=self.Psi,
@@ -504,7 +509,7 @@ class DiscreteRenewalModel(BaseCMModel):
 
             self.CasesDelayMean = pm.Normal('CasesDelayMean', cases_delay_mean_mean, cases_delay_mean_sd)
             self.CasesDelayDisp = pm.Normal('CasesDelayDisp', cases_delay_disp_mean, cases_delay_disp_sd)
-            cases_delay_dist = pm.NegativeBinomial.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
+            cases_delay_dist = NegativeBinomialCust.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
             bins = np.arange(0, cases_truncation)
             pmf = T.exp(cases_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -512,7 +517,7 @@ class DiscreteRenewalModel(BaseCMModel):
 
             self.DeathsDelayMean = pm.Normal('DeathsDelayMean', deaths_delay_mean_mean, deaths_delay_mean_sd)
             self.DeathsDelayDisp = pm.Normal('DeathsDelayDisp', deaths_delay_disp_mean, deaths_delay_disp_sd)
-            deaths_delay_dist = pm.NegativeBinomial.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
+            deaths_delay_dist = NegativeBinomialCust.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
             bins = np.arange(0, deaths_truncation)
             pmf = T.exp(deaths_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -546,7 +551,7 @@ class DiscreteRenewalModel(BaseCMModel):
                                      self.d.NewDeaths.data.reshape((self.nRs * self.nDs,))[
                                          self.all_observed_deaths])
 
-            self.ObservedCases = pm.NegativeBinomial(
+            self.ObservedCases = NegativeBinomialCust(
                 'ObservedCases',
                 mu=self.ExpectedCases.reshape((self.nRs * self.nDs,))[self.all_observed_active],
                 alpha=self.PsiCases,
@@ -554,7 +559,7 @@ class DiscreteRenewalModel(BaseCMModel):
                 observed=self.NewCases
             )
 
-            self.ObservedDeaths = pm.NegativeBinomial(
+            self.ObservedDeaths = NegativeBinomialCust(
                 'ObservedDeaths',
                 mu=self.ExpectedDeaths.reshape((self.nRs * self.nDs,))[self.all_observed_deaths],
                 alpha=self.PsiDeaths,
@@ -660,7 +665,7 @@ class NoisyRModel(BaseCMModel):
 
             self.CasesDelayMean = pm.Normal('CasesDelayMean', cases_delay_mean_mean, cases_delay_mean_sd)
             self.CasesDelayDisp = pm.Normal('CasesDelayDisp', cases_delay_disp_mean, cases_delay_disp_sd)
-            cases_delay_dist = pm.NegativeBinomial.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
+            cases_delay_dist = NegativeBinomialCust.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
             bins = np.arange(0, cases_truncation)
             pmf = T.exp(cases_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -676,7 +681,7 @@ class NoisyRModel(BaseCMModel):
                 (self.nRs, self.nDs)))
 
             # effectively handle missing values ourselves
-            self.ObservedCases = pm.NegativeBinomial(
+            self.ObservedCases = NegativeBinomialCust(
                 'ObservedCases',
                 mu=self.ExpectedCases.reshape((self.nRs * self.nDs,))[self.all_observed_active],
                 alpha=self.PsiCases,
@@ -692,7 +697,7 @@ class NoisyRModel(BaseCMModel):
 
             self.DeathsDelayMean = pm.Normal('DeathsDelayMean', deaths_delay_mean_mean, deaths_delay_mean_sd)
             self.DeathsDelayDisp = pm.Normal('DeathsDelayDisp', deaths_delay_disp_mean, deaths_delay_disp_sd)
-            deaths_delay_dist = pm.NegativeBinomial.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
+            deaths_delay_dist = NegativeBinomialCust.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
             bins = np.arange(0, deaths_truncation)
             pmf = T.exp(deaths_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -708,7 +713,7 @@ class NoisyRModel(BaseCMModel):
                 (self.nRs, self.nDs)))
 
             # effectively handle missing values ourselves
-            self.ObservedDeaths = pm.NegativeBinomial(
+            self.ObservedDeaths = NegativeBinomialCust(
                 'ObservedDeaths',
                 mu=self.ExpectedDeaths.reshape((self.nRs * self.nDs,))[self.all_observed_deaths],
                 alpha=self.PsiDeaths,
@@ -799,7 +804,7 @@ class AdditiveModel(BaseCMModel):
 
             self.CasesDelayMean = pm.Normal('CasesDelayMean', cases_delay_mean_mean, cases_delay_mean_sd)
             self.CasesDelayDisp = pm.Normal('CasesDelayDisp', cases_delay_disp_mean, cases_delay_disp_sd)
-            cases_delay_dist = pm.NegativeBinomial.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
+            cases_delay_dist = NegativeBinomialCust.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
             bins = np.arange(0, cases_truncation)
             pmf = T.exp(cases_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -815,7 +820,7 @@ class AdditiveModel(BaseCMModel):
                 (self.nRs, self.nDs)))
 
             # learn the output noise for this.
-            self.ObservedCases = pm.NegativeBinomial(
+            self.ObservedCases = NegativeBinomial(
                 'ObservedCases',
                 mu=self.ExpectedCases.reshape((self.nRs * self.nDs,))[self.all_observed_active],
                 alpha=self.PsiCases,
@@ -831,7 +836,7 @@ class AdditiveModel(BaseCMModel):
 
             self.DeathsDelayMean = pm.Normal('DeathsDelayMean', deaths_delay_mean_mean, deaths_delay_mean_sd)
             self.DeathsDelayDisp = pm.Normal('DeathsDelayDisp', deaths_delay_disp_mean, deaths_delay_disp_sd)
-            deaths_delay_dist = pm.NegativeBinomial.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
+            deaths_delay_dist = NegativeBinomialCust.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
             bins = np.arange(0, deaths_truncation)
             pmf = T.exp(deaths_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -847,7 +852,7 @@ class AdditiveModel(BaseCMModel):
                 (self.nRs, self.nDs)))
 
             # effectively handle missing values ourselves
-            self.ObservedDeaths = pm.NegativeBinomial(
+            self.ObservedDeaths = NegativeBinomialCust(
                 'ObservedDeaths',
                 mu=self.ExpectedDeaths.reshape((self.nRs * self.nDs,))[self.all_observed_deaths],
                 alpha=self.PsiDeaths,
@@ -939,7 +944,7 @@ class DifferentEffectsModel(BaseCMModel):
 
             self.CasesDelayMean = pm.Normal('CasesDelayMean', cases_delay_mean_mean, cases_delay_mean_sd)
             self.CasesDelayDisp = pm.Normal('CasesDelayDisp', cases_delay_disp_mean, cases_delay_disp_sd)
-            cases_delay_dist = pm.NegativeBinomial.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
+            cases_delay_dist = NegativeBinomialCust.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
             bins = np.arange(0, cases_truncation)
             pmf = T.exp(cases_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -955,7 +960,7 @@ class DifferentEffectsModel(BaseCMModel):
                 (self.nRs, self.nDs)))
 
             # effectively handle missing values ourselves
-            self.ObservedCases = pm.NegativeBinomial(
+            self.ObservedCases = NegativeBinomialCust(
                 'ObservedCases',
                 mu=self.ExpectedCases.reshape((self.nRs * self.nDs,))[self.all_observed_active],
                 alpha=self.PsiCases,
@@ -970,7 +975,7 @@ class DifferentEffectsModel(BaseCMModel):
 
             self.DeathsDelayMean = pm.Normal('DeathsDelayMean', deaths_delay_mean_mean, deaths_delay_mean_sd)
             self.DeathsDelayDisp = pm.Normal('DeathsDelayDisp', deaths_delay_disp_mean, deaths_delay_disp_sd)
-            deaths_delay_dist = pm.NegativeBinomial.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
+            deaths_delay_dist = NegativeBinomialCust.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
             bins = np.arange(0, deaths_truncation)
             pmf = T.exp(deaths_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -986,7 +991,7 @@ class DifferentEffectsModel(BaseCMModel):
                 (self.nRs, self.nDs)))
 
             # effectively handle missing values ourselves
-            self.ObservedDeaths = pm.NegativeBinomial(
+            self.ObservedDeaths = NegativeBinomialCust(
                 'ObservedDeaths',
                 mu=self.ExpectedDeaths.reshape((self.nRs * self.nDs,))[self.all_observed_deaths],
                 alpha=self.PsiDeaths,
@@ -1091,7 +1096,7 @@ class DiscreteRenewalFixedGIModel(BaseCMModel):
 
             self.CasesDelayMean = pm.Normal('CasesDelayMean', cases_delay_mean_mean, cases_delay_mean_sd)
             self.CasesDelayDisp = pm.Normal('CasesDelayDisp', cases_delay_disp_mean, cases_delay_disp_sd)
-            cases_delay_dist = pm.NegativeBinomial.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
+            cases_delay_dist = NegativeBinomialCust.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
             bins = np.arange(0, cases_truncation)
             pmf = T.exp(cases_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -1099,7 +1104,7 @@ class DiscreteRenewalFixedGIModel(BaseCMModel):
 
             self.DeathsDelayMean = pm.Normal('DeathsDelayMean', deaths_delay_mean_mean, deaths_delay_mean_sd)
             self.DeathsDelayDisp = pm.Normal('DeathsDelayDisp', deaths_delay_disp_mean, deaths_delay_disp_sd)
-            deaths_delay_dist = pm.NegativeBinomial.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
+            deaths_delay_dist = NegativeBinomialCust.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
             bins = np.arange(0, deaths_truncation)
             pmf = T.exp(deaths_delay_dist.logp(bins))
             pmf = pmf / T.sum(pmf)
@@ -1133,7 +1138,7 @@ class DiscreteRenewalFixedGIModel(BaseCMModel):
                                      self.d.NewDeaths.data.reshape((self.nRs * self.nDs,))[
                                          self.all_observed_deaths])
 
-            self.ObservedCases = pm.NegativeBinomial(
+            self.ObservedCases = NegativeBinomialCust(
                 'ObservedCases',
                 mu=self.ExpectedCases.reshape((self.nRs * self.nDs,))[self.all_observed_active],
                 alpha=self.PsiCases,
@@ -1141,10 +1146,120 @@ class DiscreteRenewalFixedGIModel(BaseCMModel):
                 observed=self.NewCases
             )
 
-            self.ObservedDeaths = pm.NegativeBinomial(
+            self.ObservedDeaths = NegativeBinomialCust(
                 'ObservedDeaths',
                 mu=self.ExpectedDeaths.reshape((self.nRs * self.nDs,))[self.all_observed_deaths],
                 alpha=self.PsiDeaths,
                 shape=(len(self.all_observed_deaths),),
                 observed=self.NewDeaths
             )
+
+
+
+class NegativeBinomialCust(pm.distributions.Discrete):
+    R"""
+    Negative binomial log-likelihood.
+    The negative binomial distribution describes a Poisson random variable
+    whose rate parameter is gamma distributed.
+    The pmf of this distribution is
+    .. math::
+       f(x \mid \mu, \alpha) =
+           \binom{x + \alpha - 1}{x}
+           (\alpha/(\mu+\alpha))^\alpha (\mu/(\mu+\alpha))^x
+    .. plot::
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import scipy.stats as st
+        from scipy import special
+        plt.style.use('seaborn-darkgrid')
+        def NegBinom(a, m, x):
+            pmf = special.binom(x + a - 1, x) * (a / (m + a))**a * (m / (m + a))**x
+            return pmf
+        x = np.arange(0, 22)
+        alphas = [0.9, 2, 4]
+        mus = [1, 2, 8]
+        for a, m in zip(alphas, mus):
+            pmf = NegBinom(a, m, x)
+            plt.plot(x, pmf, '-o', label=r'$\alpha$ = {}, $\mu$ = {}'.format(a, m))
+        plt.xlabel('x', fontsize=12)
+        plt.ylabel('f(x)', fontsize=12)
+        plt.legend(loc=1)
+        plt.show()
+    ========  ==========================
+    Support   :math:`x \in \mathbb{N}_0`
+    Mean      :math:`\mu`
+    ========  ==========================
+    Parameters
+    ----------
+    mu: float
+        Poission distribution parameter (mu > 0).
+    alpha: float
+        Gamma distribution parameter (alpha > 0).
+    """
+
+    def __init__(self, mu, alpha, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.mu = mu = tt.as_tensor_variable(floatX(mu))
+        self.alpha = alpha = tt.as_tensor_variable(floatX(alpha))
+        self.mode = intX(tt.floor(mu))
+
+    def random(self, point=None, size=None):
+        r"""
+        Draw random values from NegativeBinomial distribution.
+        Parameters
+        ----------
+        point: dict, optional
+            Dict of variable values on which random values are to be
+            conditioned (uses default point if not specified).
+        size: int, optional
+            Desired size of random sample (returns one sample if not
+            specified).
+        Returns
+        -------
+        array
+        """
+        mu, alpha = draw_values([self.mu, self.alpha], point=point, size=size)
+        g = generate_samples(self._random, mu=mu, alpha=alpha,
+                             dist_shape=self.shape,
+                             size=size)
+        g[g == 0] = np.finfo(float).eps  # Just in case
+
+        g = np.minimum(g, 10e10)
+        
+        return np.asarray(stats.poisson.rvs(g)).reshape(g.shape)
+
+    def _random(self, mu, alpha, size):
+        r""" Wrapper around stats.gamma.rvs that converts NegativeBinomial's
+        parametrization to scipy.gamma. All parameter arrays should have
+        been broadcasted properly by generate_samples at this point and size is
+        the scipy.rvs representation.
+        """
+        return stats.gamma.rvs(
+            a=alpha,
+            scale=mu / alpha,
+            size=size,
+        )
+
+    def logp(self, value):
+        r"""
+        Calculate log-probability of NegativeBinomial distribution at specified value.
+        Parameters
+        ----------
+        value: numeric
+            Value(s) for which log-probability is calculated. If the log probabilities for multiple
+            values are desired the values must be provided in a numpy array or theano tensor
+        Returns
+        -------
+        TensorVariable
+        """
+        mu = self.mu
+        alpha = self.alpha
+        negbinom = bound(binomln(value + alpha - 1, value)
+                         + logpow(mu / (mu + alpha), value)
+                         + logpow(alpha / (mu + alpha), alpha),
+                         value >= 0, mu > 0, alpha > 0)
+
+        # Return Poisson when alpha gets very large.
+        return tt.switch(tt.gt(alpha, 1e10),
+                         pm.Poisson.dist(self.mu).logp(value),
+                         negbinom)

@@ -244,7 +244,7 @@ class BaseCMModel(Model):
         assert self.trace is not None
         plt.figure(figsize=(4, 3), dpi=300)
 
-        means, li, ui, lq, uq = produce_CIs(100 * (1 - np.mean(self.trace["CMReduction"])))
+        means, li, ui, lq, uq = produce_CIs(100 * self.trace["CMReduction"])
 
         N_cms = means.size
 
