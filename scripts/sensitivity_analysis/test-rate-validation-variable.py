@@ -7,6 +7,7 @@
 from epimodel import EpidemiologicalParameters, DefaultModel, preprocess_data
 from epimodel.preprocessing.preprocessed_data import PreprocessedData
 from epimodel.pymc3_models.base_model import produce_CIs
+import pickle
 import numpy as np
 import pymc3 as pm
 from pymc3.distributions import draw_values, generate_samples
