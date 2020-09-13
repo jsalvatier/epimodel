@@ -19,7 +19,7 @@ import pandas as pd
 
 
 
-data = preprocess_data('../double-entry-data/double_entry_final.csv', last_day='2020-05-30', smoothing=1)
+data = preprocess_data('notebooks/double-entry-data/double_entry_final.csv', last_day='2020-05-30', smoothing=1)
 data.mask_reopenings(print_out = False)
 
 
@@ -102,6 +102,8 @@ def synthetic_prep_data(model, data, syn_deaths, syn_cases):
 
 
 adjustment = np.array([ np.random.choice([.5, 2]) for i in range(model_syn.nRs)])
+with open("adjustment.pkl", 'wb+') as f:
+    pickle.dump(adjustment, f, pickle.HIGHEST_PROTOCOL)
 
 
 # In[9]:
@@ -130,8 +132,11 @@ with DefaultModel(synth_data_normal) as model_normal:
 
 
 with model_normal:
+    v = model_normal.vars.copy()
+    v.remove(model_normal.GrowthCasesNoise)
+    v.remove(model_normal.GrowthDeathsNoise)
     model_normal.trace = pm.sample(3000, tune=200, cores=4, chains=4, max_treedepth=12, target_accept=0.925)
-    pm.save_trace(model_normal.trace, "normal", overwrite=True)
+    pm.save_trace(model_normal.trace, "normal_simple", overwrite=True)
 
 
 # In[19]:
@@ -145,5 +150,8 @@ with DefaultModel(synth_data_adjusted) as model_adjusted:
 
 
 with model_adjusted:
+    v = model_adjusted.vars.copy()
+    v.remove(model_adjusted.GrowthCasesNoise)
+    v.remove(model_adjusted.GrowthDeathsNoise)
     model_adjusted.trace = pm.sample(3000, tune=200, cores=4, chains=4, max_treedepth=12, target_accept=0.925)
-    pm.save_trace(model_adjusted.trace, "adjusted", overwrite=True)
+    pm.save_trace(model_adjusted.trace, "adjusted_simple", overwrite=True)

@@ -23,7 +23,7 @@ import pylab as plt
 # In[3]:
 
 
-data = preprocess_data('../double-entry-data/double_entry_final.csv', last_day='2020-05-30', smoothing=1)
+data = preprocess_data('notebooks/double-entry-data/double_entry_final.csv', last_day='2020-05-30', smoothing=1)
 data.mask_reopenings(print_out = False)
 
 
@@ -111,7 +111,6 @@ def synthetic_prep_data(model, data, syn_deaths, syn_cases):
 # In[11]:
 
 
-ascertainment = pd.read_csv("../double-entry-data/under_ascertainment_estimates.txt")
 country_codes = {
     "AFG":"AF",
 "ALA":"AX",
@@ -364,7 +363,7 @@ country_codes = {
 "ZWE":"ZW"
 }
 
-trdf = pd.read_csv("../double-entry-data/under_ascertainment_estimates.txt", 
+trdf = pd.read_csv("notebooks/double-entry-data/under_ascertainment_estimates.txt", 
                             parse_dates=["date"], 
                             infer_datetime_format=True)
 
@@ -403,12 +402,6 @@ synth_data_adjusted = synthetic_prep_data(model_syn, data, odeaths, ocases)
 synth_data_adjusted.NewCases  = synth_data_adjusted.NewCases / test_rates
 
 
-# In[ ]:
-
-
-
-    
-
 
 # In[14]:
 
@@ -421,8 +414,12 @@ with DefaultModel(synth_data_normal) as model_normal:
 
 
 with model_normal:
-    model_normal.trace = pm.sample(500, tune=0, cores=1, chains=1, max_treedepth=12, target_accept=0.925)
-    pm.save_trace(model_normal.trace, "normal_variable")
+    v = model_normal.vars.copy()
+    v.remove(model_normal.GrowthCasesNoise)
+    v.remove(model_normal.GrowthDeathsNoise)
+    
+    model_normal.trace = pm.sample(3000, tune=500, cores=4, chains=4, max_treedepth=12, target_accept=0.925, trace=v)
+    pm.save_trace(model_normal.trace, "normal_variable", overwrite=True)
 
 
 # In[16]:
@@ -436,8 +433,11 @@ with DefaultModel(synth_data_adjusted) as model_adjusted:
 
 
 with model_adjusted:
-    model_adjusted.trace = pm.sample(500, tune=500, cores=1, chains=1, max_treedepth=12, target_accept=0.925)
-    pm.save_trace(model_adjusted.trace, "adjusted_variable")
+    v = model_adjusted.vars.copy()
+    v.remove(model_adjusted.GrowthCasesNoise)
+    v.remove(model_adjusted.GrowthDeathsNoise)
+    model_adjusted.trace = pm.sample(3000, tune=500, cores=4, chains=4, max_treedepth=12, target_accept=0.925, trace=v)
+    pm.save_trace(model_adjusted.trace, "adjusted_variable", overwrite=True)
 
 
 # In[19]:
