@@ -47,10 +47,10 @@ with model_syn:
     
     point = {
         'CM_Alpha' : np.array([.0,.05,.1,.15,.2,.25,.3,.35,.4]),
-        'InitialSizeCases_log' : -10 *np.ones((41,1)), 
-        'InitialSizeDeaths_log' : -10 *np.ones((41,1)), 
-        'RegionLogR_noise' : .1*np.ones(41),
-        'HyperRVar' : 1
+        'InitialSizeCases_log' : -7 *np.ones((41,1)), 
+        'InitialSizeDeaths_log' : -7 *np.ones((41,1)), 
+        #'RegionLogR_noise' : .1*np.ones(41),
+        'HyperRVar' : .2
     }
     c = [model_syn.GrowthCases, 
          model_syn.GrowthDeaths, 
@@ -397,10 +397,9 @@ for r_i, r in enumerate(data.Rs):
 # In[13]:
 
 
-synth_data_normal = synthetic_prep_data(model_syn, data, odeaths, ocases)
-synth_data_adjusted = synthetic_prep_data(model_syn, data, odeaths, ocases)
+synth_data_normal = preprocess_data('notebooks/double-entry-data/double_entry_final.csv', last_day='2020-05-30', smoothing=1)
+synth_data_adjusted = preprocess_data('notebooks/double-entry-data/double_entry_final.csv', last_day='2020-05-30', smoothing=1)
 synth_data_adjusted.NewCases  = synth_data_adjusted.NewCases / test_rates
-
 
 
 # In[14]:
@@ -418,8 +417,8 @@ with model_normal:
     v.remove(model_normal.GrowthCasesNoise)
     v.remove(model_normal.GrowthDeathsNoise)
     
-    model_normal.trace = pm.sample(3000, tune=500, cores=4, chains=4, max_treedepth=12, target_accept=0.925, trace=v)
-    pm.save_trace(model_normal.trace, "normal_variable", overwrite=True)
+    model_normal.trace = pm.sample(1500, tune=500, cores=4, chains=4, max_treedepth=12, target_accept=0.925, trace=v)
+    pm.save_trace(model_normal.trace, "nonsynth_normal_variable", overwrite=True)
 
 
 # In[16]:
@@ -436,8 +435,8 @@ with model_adjusted:
     v = model_adjusted.vars.copy()
     v.remove(model_adjusted.GrowthCasesNoise)
     v.remove(model_adjusted.GrowthDeathsNoise)
-    model_adjusted.trace = pm.sample(3000, tune=500, cores=4, chains=4, max_treedepth=12, target_accept=0.925, trace=v)
-    pm.save_trace(model_adjusted.trace, "adjusted_variable", overwrite=True)
+    model_adjusted.trace = pm.sample(1500, tune=500, cores=4, chains=4, max_treedepth=12, target_accept=0.925, trace=v)
+    pm.save_trace(model_adjusted.trace, "nonsynth_adjusted_variable", overwrite=True)
 
 
 # In[19]:
