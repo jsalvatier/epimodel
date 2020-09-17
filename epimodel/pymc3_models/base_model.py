@@ -1,9 +1,9 @@
 """
-base_model file
-
-This file contains contains:
-- utility functions used often with models
-- BaseCMModel class, which other classes inherit from
+| :code:`base_model.py`
+| 
+| This file contains contains:
+| - utility functions used often with models
+| - BaseCMModel class, which other classes inherit from
 """
 
 import matplotlib.pyplot as plt
@@ -13,7 +13,6 @@ import seaborn as sns
 from matplotlib.font_manager import FontProperties
 from epimodel.pymc3_distributions.asymmetric_laplace import AsymmetricLaplace
 from pymc3 import Model
-import theano.tensor as T
 
 fp2 = FontProperties(fname=r"../../fonts/Font Awesome 5 Free-Solid-900.otf")
 sns.set_style("ticks")
@@ -244,7 +243,7 @@ class BaseCMModel(Model):
         assert self.trace is not None
         plt.figure(figsize=(4, 3), dpi=300)
 
-        means, li, ui, lq, uq = produce_CIs(100 * self.trace["CMReduction"])
+        means, li, ui, lq, uq = produce_CIs(100 * (1 - self.trace["CMReduction"]))
 
         N_cms = means.size
 

@@ -1,7 +1,7 @@
 """
-Models file
+:code:`models.py`
 
-Contains several different model implementations.
+Contains a variety of models of NPI effectiveness, all subclassed from BaseCMModel. 
 """
 import numpy as np
 import pymc3 as pm
@@ -86,8 +86,13 @@ class DefaultModel(BaseCMModel):
             self.ExpectedLogR = T.reshape(pm.math.log(self.RegionR), (self.nRs, 1)) - self.LogRReduction
 
             # convert R into growth rates
-            self.GI_mean = pm.Normal('GI_mean', gi_mean_mean, gi_mean_sd)
-            self.GI_sd = pm.Normal('GI_sd', gi_sd_mean, gi_sd_sd)
+            if gi_mean_sd > 0:
+                self.GI_mean = pm.TruncatedNormal('GI_mean', gi_mean_mean, gi_mean_sd, lower=0.01)
+            else:
+                print('Using a fixed value for the generation interval mean')
+                self.GI_mean = gi_mean_mean
+
+            self.GI_sd = pm.TruncatedNormal('GI_sd', gi_sd_mean, gi_sd_sd, lower=0.01)
 
             gi_beta = self.GI_mean / self.GI_sd ** 2
             gi_alpha = self.GI_mean ** 2 / self.GI_sd ** 2
@@ -112,7 +117,12 @@ class DefaultModel(BaseCMModel):
             self.InfectedCases = pm.Deterministic("InfectedCases", pm.math.exp(
                 self.InitialSizeCases_log + self.GrowthCases.cumsum(axis=1)))
 
-            self.CasesDelayMean = pm.Normal('CasesDelayMean', cases_delay_mean_mean, cases_delay_mean_sd)
+            if cases_delay_mean_sd > 0:
+                self.CasesDelayMean = pm.Normal('CasesDelayMean', cases_delay_mean_mean, cases_delay_mean_sd)
+            else:
+                print('Using a fixed value for the reporting delay mean')
+                self.CasesDelayMean = cases_delay_mean_mean
+
             self.CasesDelayDisp = pm.Normal('CasesDelayDisp', cases_delay_disp_mean, cases_delay_disp_sd)
             cases_delay_dist = NegativeBinomialCust.dist(mu=self.CasesDelayMean, alpha=self.CasesDelayDisp)
             bins = np.arange(0, cases_truncation)
@@ -146,7 +156,13 @@ class DefaultModel(BaseCMModel):
             self.InfectedDeaths = pm.Deterministic("InfectedDeaths", pm.math.exp(
                 self.InitialSizeDeaths_log + self.GrowthDeaths.cumsum(axis=1)))
 
-            self.DeathsDelayMean = pm.Normal('DeathsDelayMean', deaths_delay_mean_mean, deaths_delay_mean_sd)
+            if deaths_delay_mean_sd > 0:
+                self.DeathsDelayMean = pm.Normal('DeathsDelayMean', deaths_delay_mean_mean,
+                                                          deaths_delay_mean_sd)
+            else:
+                print('Using a fixed value for the fatality delay mean')
+                self.DeathsDelayMean = deaths_delay_mean_mean
+
             self.DeathsDelayDisp = pm.Normal('DeathsDelayDisp', deaths_delay_disp_mean, deaths_delay_disp_sd)
             deaths_delay_dist = NegativeBinomialCust.dist(mu=self.DeathsDelayMean, alpha=self.DeathsDelayDisp)
             bins = np.arange(0, deaths_truncation)

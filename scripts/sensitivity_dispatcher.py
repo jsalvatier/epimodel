@@ -2,12 +2,17 @@ import os
 import subprocess
 import argparse
 import yaml
+import time
+
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--max_processes', dest='max_processes', type=int)
-argparser.add_argument('--categories', nargs='+', dest='categories', type=str)
-argparser.add_argument('--dry_run', default=False, action='store_true')
-args = argparser.parse_args()
+argparser.add_argument('--max_processes', dest='max_processes', type=int, help='Number of processes to spawn')
+argparser.add_argument('--categories', nargs='+', dest='categories', type=str, help='Run types to execute')
+argparser.add_argument('--dry_run', default=False, action='store_true', help='Print run types selected and exit')
+
 
 
 def run_types_to_commands(run_types, exp_options):
@@ -48,6 +53,8 @@ def run_types_to_commands(run_types, exp_options):
 
 if __name__ == '__main__':
 
+    args = argparser.parse_args()
+
     with open('scripts/sensitivity_analysis/sensitivity_analysis.yaml', 'r') as stream:
         try:
             exp_options = yaml.safe_load(stream)
@@ -71,6 +78,7 @@ if __name__ == '__main__':
 
         for command in commands:
             processes.add(subprocess.Popen(command, shell=True))
+            time.sleep(30.0)
             if len(processes) >= max_processes:
                 os.wait()
                 processes.difference_update([

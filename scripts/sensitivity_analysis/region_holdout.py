@@ -1,3 +1,10 @@
+"""
+:code:`region_holdout.py`
+
+Hold out data for a specified region. Useful for exploring how well the model predicts the infection course in held-out data.
+"""
+
+
 import pymc3 as pm
 
 from epimodel import EpidemiologicalParameters
@@ -9,11 +16,14 @@ import pickle
 from scripts.sensitivity_analysis.utils import *
 
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--rg', dest='rg', type=str)
+argparser.add_argument('--rg', dest='rg', type=str, help='Region to leave out - alpha 2 code')
 add_argparse_arguments(argparser)
-args = argparser.parse_args()
+
 
 if __name__ == '__main__':
+
+    args = argparser.parse_args()
+
     class ResultsObject():
         def __init__(self, indx, trace):
             self.CMReduction = trace.CMReduction
@@ -24,9 +34,13 @@ if __name__ == '__main__':
             self.ExpectedDeaths = trace.ExpectedDeaths[:, indx, :]
             self.PsiCases = trace.PsiCases
             self.PsiDeaths = trace.PsiDeaths
+            self.InitialSizeCases_log = trace.InitialSizeCases_log[:, indx]
+            self.InitialSizeDeaths_log = trace.InitialSizeDeaths_log[:, indx]
+            self.GrowthCasesNoise = trace.GrowthCasesNoise[:, indx, :]
+            self.GrowthDeathsNoise = trace.GrowthDeathsNoise[:, indx, :]
 
 
-    data = preprocess_data('notebooks/double-entry-data/double_entry_final.csv', last_day='2020-05-30')
+    data = preprocess_data('merged_data/double_entry_final.csv', last_day='2020-05-30')
     data.mask_reopenings()
     data.mask_region(args.rg)
     region_index = data.Rs.index(args.rg)

@@ -1,3 +1,10 @@
+"""
+:code:'oxcgrt_leavein.py'
+
+Include extra NPIs from the OxCGRT dataset.
+"""
+
+
 import pymc3 as pm
 
 from epimodel import EpidemiologicalParameters
@@ -9,11 +16,20 @@ import copy
 from scripts.sensitivity_analysis.utils import *
 
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--npis', nargs='+', dest='npis', type=int)
+argparser.add_argument('--npis', nargs='+', dest='npis', type=int, help = '''OxCGRT NPIs to include. One or more of:
+                                                                        | Travel Screen/Quarantine
+                                                                        | Travel Bans
+                                                                        | Public Transport Limited
+                                                                        | Internal Movement Limited
+                                                                        | Public Information Campaigns
+                                                                        | Symptomatic Testing''')
 add_argparse_arguments(argparser)
-args = argparser.parse_args()
+
 
 if __name__ == '__main__':
+
+    args = argparser.parse_args()
+
     # this is the default drop values
     drop_features_full = ['Travel Screen/Quarantine', 'Travel Bans', 'Public Transport Limited',
                           'Internal Movement Limited', 'Public Information Campaigns', 'Symptomatic Testing']
@@ -26,7 +42,7 @@ if __name__ == '__main__':
         output_string = f'{output_string}{npi_index}'
     output_string = f'{output_string}.txt'
 
-    data = preprocess_data('notebooks/double-entry-data/double_entry_final.csv', last_day='2020-05-30',
+    data = preprocess_data('merged_data/double_entry_final.csv', last_day='2020-05-30',
                            drop_features=drop_features)
     data.mask_reopenings()
 

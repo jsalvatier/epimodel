@@ -1,3 +1,10 @@
+"""
+:code:`agg_holdout.py`
+
+Mask 20 extra days from the end of the data.
+"""
+
+
 import pymc3 as pm
 
 from epimodel import EpidemiologicalParameters
@@ -10,9 +17,11 @@ from scripts.sensitivity_analysis.utils import *
 
 argparser = argparse.ArgumentParser()
 add_argparse_arguments(argparser)
-args = argparser.parse_args()
 
 if __name__ == '__main__':
+
+    args = argparser.parse_args()
+
     class ResultsObject():
         def __init__(self, trace):
             self.CMReduction = trace.CMReduction
@@ -24,7 +33,7 @@ if __name__ == '__main__':
             self.PsiCases = trace.PsiCases
             self.PsiDeaths = trace.PsiDeaths
 
-    data = preprocess_data('notebooks/double-entry-data/double_entry_final.csv', last_day='2020-05-30')
+    data = preprocess_data('merged_data/double_entry_final.csv', last_day='2020-05-30')
     # mask 20 extra days
     data.mask_reopenings(n_extra=20)
 
