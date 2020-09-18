@@ -70,7 +70,7 @@ with model_syn:
 # In[ ]:
 
 
-with open("synthetic_values_variable.pkl", 'wb+') as f:
+with open("results/synthetic_values_variable.pkl", 'wb+') as f:
     pickle.dump(synthvalues, f, pickle.HIGHEST_PROTOCOL)
 
 
@@ -398,7 +398,9 @@ for r_i, r in enumerate(data.Rs):
 
 
 synth_data_normal = preprocess_data('notebooks/double-entry-data/double_entry_final.csv', last_day='2020-05-30', smoothing=1)
+synth_data_normal.mask_reopenings(print_out = False)
 synth_data_adjusted = preprocess_data('notebooks/double-entry-data/double_entry_final.csv', last_day='2020-05-30', smoothing=1)
+synth_data_adjusted.mask_reopenings(print_out = False)
 synth_data_adjusted.NewCases  = synth_data_adjusted.NewCases / test_rates
 
 
@@ -417,8 +419,9 @@ with model_normal:
     v.remove(model_normal.GrowthCasesNoise)
     v.remove(model_normal.GrowthDeathsNoise)
     
-    model_normal.trace = pm.sample(1500, tune=500, cores=4, chains=4, max_treedepth=12, target_accept=0.925, trace=v)
-    pm.save_trace(model_normal.trace, "nonsynth_normal_variable", overwrite=True)
+    model_normal.trace = pm.sample(1500, tune=500, cores=4, chains=4, max_treedepth=12, target_accept=0.925, trace=v, start=model_normal.test_point)
+    pm.save_trace(model_normal.trace, "results/nonsynth_normal_variable", overwrite=True)
+    np.savetxt('results/nonsynth_normal_variable_CM_Alpha.txt', model_normal.trace['CM_Alpha'])
 
 
 # In[16]:
@@ -435,8 +438,9 @@ with model_adjusted:
     v = model_adjusted.vars.copy()
     v.remove(model_adjusted.GrowthCasesNoise)
     v.remove(model_adjusted.GrowthDeathsNoise)
-    model_adjusted.trace = pm.sample(1500, tune=500, cores=4, chains=4, max_treedepth=12, target_accept=0.925, trace=v)
-    pm.save_trace(model_adjusted.trace, "nonsynth_adjusted_variable", overwrite=True)
+    model_adjusted.trace = pm.sample(1500, tune=500, cores=4, chains=4, max_treedepth=12, target_accept=0.925, trace=v, start=model_adjusted.test_point)
+    pm.save_trace(model_adjusted.trace, "results/nonsynth_adjusted_variable", overwrite=True)
+    np.savetxt('results/nonsynth_adjusted_variable_CM_Alpha.txt', model_adjusted.trace['CM_Alpha'])
 
 
 # In[19]:
