@@ -1,0 +1,304 @@
+###
+# Mask data for one region and output prediction for the masked region. Runs once for each region.
+region_holdout:
+  experiment_file: region_holdout.py
+  experiment_tag: region_holdout
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    rg:
+      - AL
+      - AD
+      - AT
+      - BE
+      - BA
+      - BG
+      - HR
+      - CZ
+      - DK
+      - EE
+      - FI
+      - FR
+      - GE
+      - DE
+      - GR
+      - HU
+      - IS
+      - IE
+      - IL
+      - IT
+      - LV
+      - LT
+      - MY
+      - MT
+      - MX
+      - MA
+      - NL
+      - NZ
+      - 'NO' # otherwise this evaluates to false!
+      - PL
+      - PT
+      - RO
+      - RS
+      - SG
+      - SK
+      - SI
+      - ZA
+      - ES
+      - SE
+      - CH
+      - GB
+
+###
+# Remove NPI indicators from dataset and fit model with the remaining set of NPIs. Runs once for each NPI, and additionally leaves out school and university closures jointly
+npi_leaveout:
+  experiment_file: npi_leaveout.py
+  experiment_tag: npi_leaveout
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    npis:
+      - [0]
+      - [1]
+      - [2]
+      - [3]
+      - [4]
+      - [5]
+      - [6]
+      - [7]
+      - [8]
+      - [6, 7]
+
+###
+# Run the model masking daily confirmed cases when a region's total number of confirmed cases is below [10, 50, 150, 200] cases
+cases_threshold:
+  experiment_file: preprocessing_tests.py
+  experiment_tag: cases_threshold
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    smoothing: 1
+    deaths_threshold: 10
+    cases_threshold: [10, 30, 50, 200, 300]
+
+###
+# Run the model masking daily death counts when a region's total number of deaths is below [1, 5, 30, 50] deaths
+deaths_threshold:
+  experiment_file: preprocessing_tests.py
+  experiment_tag: deaths_threshold
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    smoothing: 1
+    deaths_threshold: [1, 5, 30, 50]
+    cases_threshold: 100
+
+###
+# | Run the model with additional featurs from OxCGRT: 
+# | ['Travel Screen/Quarantine', 'Travel Bans', 'Public Transport Limited',
+# | 'Internal Movement Limited', 'Public Information Campaigns', 'Symptomatic Testing']
+oxcgrt:
+  experiment_file: oxcgrt_leavein.py
+  experiment_tag: oxcgrt
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    npis:
+      - [0, 1]
+      - [2]
+      - [3]
+      - [4]
+      - [5]
+
+###
+# Run the model with a prior mean R0 of [2.28, 2.78, 3.78, 4.38]
+R_prior:
+  experiment_file: alternative_build_param.py
+  experiment_tag: R_prior
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    R_prior_mean: [2.38, 2.78, 3.78, 4.28]
+    NPI_prior: skewed 10
+    growth_noise: 0.2
+
+###
+# Add noise to growth rate
+growth_noise:
+  experiment_file: alternative_build_param.py
+  experiment_tag: growth_noise
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    R_prior_mean: 3.28
+    NPI_prior: skewed 10
+    growth_noise:
+      - 0.05
+      - 0.1
+      - 0.3
+      - 0.4
+
+###
+# Run the model with an NPI effetiveness prior of [skewed 10, Normal(0,0.2), ICL]
+NPI_prior:
+  experiment_file: alternative_build_param.py
+  experiment_tag: NPI_prior
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    R_prior_mean: 3.28
+    NPI_prior:
+      - normal 0.2
+      - icl 0
+    growth_noise: 0.2
+
+###
+# Mask the final 20 days of data and predict this period with the model
+agg_holdout:
+  experiment_file: agg_holdout.py
+  experiment_tag: agg_holdout
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args: {}
+
+###
+# Add an additional dummy NPI representing whether any major NPI is active
+any_npi_active:
+  experiment_file: any_npi_active.py
+  experiment_tag: any_npi_active
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args: {}
+
+###
+# Run the model with an additional 5 day delay to school and university closures
+delay_schools:
+  experiment_file: delay_schools.py
+  experiment_tag: delay_schools
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args: {}
+
+###
+# Run the model with NPI indices 0-8 representing 0,...,8 active NPIs, ignoring NPI type
+npi_timing:
+  experiment_file: npi_timing.py
+  experiment_tag: npi_timing
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args: {}
+
+###
+# | Run the model with alternative structures: 
+# | [additive, discrete_renewal, discrete_renewal_fixed_gi,
+# | noisy_r, different_effects, cases_only, deaths_only]
+structural:
+  experiment_file: structural.py
+  experiment_tag: structural
+  model_type: default # note this argument is neglected here
+  n_chains: 4
+  n_samples: 2000
+  args:
+    model_structure:
+      - additive
+      - discrete_renewal_fixed_gi
+      - noisy_r
+      - different_effects
+      - cases_only
+      - deaths_only
+
+epiparam_prior:
+  experiment_file: epiparam.py
+  experiment_tag: epiparam_prior
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    gi_mean_mean: [3.06, 4.06, 5.06, 6.06, 7.06]
+    gi_mean_sd: 0.3265
+    deaths_mean_mean: [17.82, 19.82, 21.82, 23.82, 25.82]
+    deaths_mean_sd: 1.607
+    cases_mean_mean: [6.92, 8.92, 10.92, 12.92, 14.92]
+    cases_mean_sd: 0.5
+
+epiparam_prior_extra:
+  experiment_file: epiparam.py
+  experiment_tag: epiparam_prior_extra
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    gi_mean_mean: [3.06, 4.06, 5.06, 6.06, 7.06]
+    gi_mean_sd: 0.3265
+    deaths_mean_mean: [17.82, 19.82, 21.82, 23.82, 25.82]
+    deaths_mean_sd: 1.01
+    cases_mean_mean: [7.92, 9.42, 10.92, 12.42, 13.92]
+    cases_mean_sd: 0.94
+
+epiparam_fixed:
+  experiment_file: epiparam.py
+  experiment_tag: epiparam_fixed
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    gi_mean_mean: [3.06, 4.06, 5.06, 6.06, 7.06]
+    gi_mean_sd: 0.0
+    deaths_mean_mean: [17.82, 19.82, 21.82, 23.82, 25.82]
+    deaths_mean_sd: 0.0
+    cases_mean_mean: [6.92, 8.92, 10.92, 12.92, 14.92]
+    cases_mean_sd: 0.0
+
+gi_prior_sd:
+  experiment_file: epiparam_sds.py
+  experiment_tag: gi_prior_sd
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    gi_sd_mean: [1.1, 3.1, 4.1]
+    gi_sd_sd: 0.5
+    deaths_disp_mean: 14.26
+    deaths_disp_sd: 5.18
+    cases_disp_mean: 5.41
+    cases_disp_sd: 0.27
+
+death_delay_prior_sd:
+  experiment_file: epiparam_sds.py
+  experiment_tag: death_delay_prior_sd
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    gi_sd_mean: 2.1
+    gi_sd_sd: 0.5
+    deaths_disp_mean: [8.26, 11.26, 17.26, 20.26]
+    deaths_disp_sd: 5.18
+    cases_disp_mean: 5.41
+    cases_disp_sd: 0.27
+
+cases_delay_prior_sd:
+  experiment_file: epiparam_sds.py
+  experiment_tag: cases_delay_prior_sd
+  model_type: default
+  n_chains: 4
+  n_samples: 2000
+  args:
+    gi_sd_mean: 2.1
+    gi_sd_sd: 0.5
+    deaths_disp_mean: 14.26
+    deaths_disp_sd: 5.18
+    cases_disp_mean: [2.41, 4.41, 5.41, 7.41]
+    cases_disp_sd: 0.27

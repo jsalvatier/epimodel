@@ -1,1 +1,1 @@
-from . import cm_effect
+from .epi_params import EpidemiologicalParameters
