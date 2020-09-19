@@ -11,6 +11,7 @@ import pickle
 import numpy as np
 import pymc3 as pm
 from pymc3.distributions import draw_values, generate_samples
+import theano
 
 import pandas as pd 
 
@@ -86,7 +87,7 @@ def eur_to_epi_code(x):
 
 
 def process_euro_data(path, regular_data_path, ICL_data_path):
-    data = preprocess_data('../../notebooks/double-entry-data/double_entry_final.csv')
+    data = preprocess_data('notebooks/double-entry-data/double_entry_final.csv')
     data.mask_reopenings(print_out = False)
 
 
@@ -125,15 +126,14 @@ def process_euro_data(path, regular_data_path, ICL_data_path):
 
     return data
 
-jh_data = preprocess_data('../../notebooks/double-entry-data/double_entry_final.csv')
+jh_data = preprocess_data('notebooks/double-entry-data/double_entry_final.csv')
 jh_data.mask_reopenings(print_out = False)
-eur_data = process_euro_data("../../notebook/final_data/eur_data.csv", '../../notebooks/double-entry-data/double_entry_final.csv', "../../notebooks/final_data/ICL.csv")
+eur_data = process_euro_data("notebooks/final_data/eur_data.csv", 'notebooks/double-entry-data/double_entry_final.csv', "notebooks/final_data/ICL.csv")
 
 # In[4]:
 
 
 ep = EpidemiologicalParameters()
-
 
 
 
@@ -155,8 +155,8 @@ with jh_model:
     np.savetxt('euro_validation_results/jh_CM_Alpha.txt', jh_model.trace['CM_Alpha'])
 
 
-with DefaultModel(jh_data) as jh_model:
-    jh_model.build_model(**ep.get_model_build_dict())
+with DefaultModel(eur_data ) as euro_model:
+    euro_model.build_model(**ep.get_model_build_dict())
 
 
 # In[15]:
@@ -168,5 +168,5 @@ with euro_model:
     v.remove(euro_model.GrowthDeathsNoise)
     
     euro_model.trace = pm.sample(1500, tune=500, cores=4, chains=4, max_treedepth=12, target_accept=0.925, trace=v, start=euro_model.test_point)
-    pm.save_trace(jh_model.trace, "euro_validation_results/euro", overwrite=True)
+    pm.save_trace(euro_model.trace, "euro_validation_results/euro", overwrite=True)
     np.savetxt('euro_validation_results/euro_CM_Alpha.txt', euro_model.trace['CM_Alpha'])
