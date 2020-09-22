@@ -88,7 +88,6 @@ def eur_to_epi_code(x):
 
 def process_euro_data(path, regular_data_path, ICL_data_path):
     data = preprocess_data('notebooks/double-entry-data/double_entry_final.csv')
-    data.mask_reopenings(print_out = False)
 
 
     
@@ -122,7 +121,8 @@ def process_euro_data(path, regular_data_path, ICL_data_path):
     NewCases[NewCases < 0] = np.nan
     data.NewCases = np.ma.masked_invalid(NewCases.astype(theano.config.floatX))
     data.NewDeaths = np.ma.masked_invalid(NewDeaths.astype(theano.config.floatX))
-    
+
+    data.mask_reopenings(print_out = False)
 
     return data
 
